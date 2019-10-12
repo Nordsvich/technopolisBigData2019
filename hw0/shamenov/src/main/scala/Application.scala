@@ -14,16 +14,18 @@ object Application extends App {
 
   // exclude UAs
 
-  val schema = new StructType().add(StructField("ua_excluded", StringType, true)) //load schema
-
-  val excludedRdd = spark.read.text(pathTxt).rdd // load txt to rdd
-
-  val excludedFileDataFrame = spark.createDataFrame(excludedRdd, schema);
+  val excludedFileDataFrame = spark.createDataFrame(
+    spark.read.text(pathTxt).rdd,
+    new StructType().add(StructField("ua_excluded", StringType, true)));
 
   // First task
 
+  println(csvDataFrame.rdd.collect().length)
+
   csvDataFrame.join(excludedFileDataFrame, csvDataFrame("ua") === excludedFileDataFrame("ua_excluded"), "left_outer")
        .filter(excludedFileDataFrame("ua_excluded").isNull)
+
+  println(csvDataFrame.rdd.collect().length)
 
   csvDataFrame.groupBy("ua") // group by ua
     .agg(functions.sum("is_click").alias("clicks"), functions.count("is_click").alias("shows")) //  sum clicks for each ua
@@ -32,14 +34,13 @@ object Application extends App {
     .withColumn("CTR", functions.col("clicks") / functions.col("shows"))
     .show(5) // show 5
 
-
   // Second task
 
-  val total = csvDataFrame.agg(functions.sum("is_click")).first.getDouble(0).toInt //
+  val total = csvDataFrame.agg(functions.sum("is_click")).first.getDouble(0).toInt
 
   val PercentsDF = csvDataFrame.groupBy("ua") // group by ua
     .agg(functions.sum("is_click").alias("clicks"))
     .withColumn("percents", functions.col("clicks") / functions.sum("clicks").over())
-  //println(PercentsDF.orderBy(functions.desc("percents")).limit(14).agg(functions.sum("percents")).first.getDouble(0))
+  println(PercentsDF.orderBy(functions.desc("percents")).limit(14).agg(functions.sum("percents")).first.getDouble(0))
 
 }
