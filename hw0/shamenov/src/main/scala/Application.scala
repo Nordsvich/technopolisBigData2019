@@ -23,7 +23,7 @@ object Application extends App {
   // First task
 
   csvDataFrame.join(excludedFileDataFrame, csvDataFrame("ua") === excludedFileDataFrame("ua_excluded"), "left_outer")
-       .filter("ua_excluded is null")
+       .filter(excludedFileDataFrame("ua_excluded").isNull)
 
   csvDataFrame.groupBy("ua") // group by ua
     .agg(functions.sum("is_click").alias("clicks"), functions.count("is_click").alias("shows")) //  sum clicks for each ua
