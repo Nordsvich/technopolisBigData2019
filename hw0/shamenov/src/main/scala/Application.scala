@@ -14,16 +14,13 @@ object Application extends App {
 
   // exclude UAs
 
-  val schema = new StructType().add(StructField("ua_excluded", StringType, true))
+  val schema = new StructType().add(StructField("ua_excluded", StringType, true)) //load schema
 
-  val excludedRdd = spark.read.text(pathTxt).rdd // load txt
+  val excludedRdd = spark.read.text(pathTxt).rdd // load txt to rdd
 
   val excludedFileDataFrame = spark.createDataFrame(excludedRdd, schema);
 
   // First task
-
-  val num = csvDataFrame.count()
-
 
   csvDataFrame.join(excludedFileDataFrame, csvDataFrame("ua") === excludedFileDataFrame("ua_excluded"), "left_outer")
        .filter("ua_excluded is null")
@@ -35,7 +32,6 @@ object Application extends App {
     .withColumn("CTR", functions.col("clicks") / functions.col("shows"))
     .show(5) // show 5
 
-  val num1 = csvDataFrame.count()
 
   // Second task
 
