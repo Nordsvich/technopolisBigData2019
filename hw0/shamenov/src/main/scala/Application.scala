@@ -10,7 +10,7 @@ object Application extends App {
   val pathCSV = "./ua_reactions.csv"
   val pathTxt = "./excluded.txt"
 
-  val csvDataFrame = spark.read.format("csv").option("header", "true").load(pathCSV) // header = true
+  var csvDataFrame = spark.read.format("csv").option("header", "true").load(pathCSV) // header = true
 
   // exclude UAs
 
@@ -20,30 +20,23 @@ object Application extends App {
 
   // First task
 
-  val csvDataFrameWithoutExcluded = csvDataFrame
+  csvDataFrame = csvDataFrame
     .join(excludedFileDataFrame, Seq("ua"), "left_anti")
 
-
-  csvDataFrameWithoutExcluded.groupBy("ua") // group by ua
+  csvDataFrame.groupBy("ua") // group by ua
     .agg(functions.sum("is_click").alias("clicks"), functions.count("is_click").alias("shows")) //  sum clicks for each ua
     .where("clicks > 5")
     .orderBy(functions.desc("clicks"))
     .withColumn("CTR", functions.col("clicks") / functions.col("shows"))
     .show(5) // show 5
 
-
-
   // Second task
 
-  val total = csvDataFrame.agg(functions.sum("is_click")).first.getDouble(0).toInt
+  //val total = csvDataFrame.agg(functions.sum("is_click")).first.getDouble(0).toInt
 
   val PercentsDF = csvDataFrame.groupBy("ua") // group by ua
     .agg(functions.sum("is_click").alias("clicks"))
-    .withColumn("percents", functions.col("clicks") / functions.sum("clicks").over())
-
-  println(PercentsDF
+    .withColumn("percents", functions.col("clicks") / functions.sum("clicks").over() * 100)
     .orderBy(functions.desc("percents"))
-    .limit(14)
-    .agg(functions.sum("percents"))
-    .first.getDouble(0))
+    .show()
 }
