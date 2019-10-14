@@ -30,7 +30,7 @@ object UserAgentStats {
       .agg(
         count("*").alias("shows"),
         sum(col("is_click")).alias("clicks"))
-      .filter(col("shows") >= 5)
+      .filter(col("shows") > 5)
       .withColumn("CTR", expr("clicks/shows"))
       .orderBy(col("CTR").desc)
       .limit(5)
