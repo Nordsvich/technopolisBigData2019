@@ -18,16 +18,15 @@ object Main extends App {
     val dfReactions: DataFrame = spark.read.option("header", "true").csv("hw0/ua_reactions.csv").cache()
     val dfExcluded: DataFrame = spark.read.text("hw0/excluded.txt").toDF("ua").cache()
 
-    dfExcluded.printSchema()
-    dfReactions.printSchema()
-
     val arrayExcluded = dfExcluded.collect()
 
     val dfMain = dfReactions
       .filter(r => !contains(r(0), arrayExcluded))
       .groupBy("ua")
-      .agg(sum("is_click"), count("is_click"))
+      .agg(sum("is_click").alias("clicked"), count("is_click").alias("showed"))
 
+
+    //Task 1
 
     dfMain.withColumn("ctr", dfMain.col(dfMain.columns(1)) / dfMain.col(dfMain.columns(2)))
       .filter(col(dfMain.columns(2)).>(5))
@@ -35,6 +34,25 @@ object Main extends App {
       .show(5, truncate = false)
 
 
+    //Task 2
+
+    val arrayMain = dfMain.orderBy(desc(dfMain.columns(2))).collect()
+    var totalShows: Long = 0
+
+    arrayMain.foreach(r => {
+      totalShows += r(2).asInstanceOf[Long]
+    })
+
+    var countAns: Int = 0
+    var countShows: Long = 0
+    arrayMain.foreach(r => {
+      if (countShows + r(2).asInstanceOf[Long] < totalShows / 2) {
+        countShows += r(2).asInstanceOf[Long]
+        countAns = countAns + 1
+      }
+    })
+
+    dfMain.orderBy(desc(dfMain.columns(2))).show(countAns, truncate = false)
   }
 
 
