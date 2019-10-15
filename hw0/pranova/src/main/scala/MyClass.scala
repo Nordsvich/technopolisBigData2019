@@ -27,13 +27,13 @@ object MyClass {
 
     val result=spark.sql("select * from global_temp.Result where _c0 not in (select value from global_temp.excluded)")
 
-    result.show(false) //done first task
+    result.show(5,false) //done first task
 
     val countAllShows = spark.sql("select count(*) as c from global_temp.ua_reactions where _c0 not in (select value from global_temp.excluded)")//544
 
 
     val pre_res=spark.sql("select global_temp.tableForResult1._c0 as _c0, click+show as sum FROM global_temp.tableForResult1 inner join global_temp.tableForResult2 on global_temp.tableForResult1._c0=global_temp.tableForResult2._c0")
-    
+
     pre_res.createGlobalTempView("pre_res")
 
     val pre_result2=spark.sql("select * from global_temp.pre_res where _c0 not in (select value from global_temp.excluded)")
