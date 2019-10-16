@@ -1,6 +1,5 @@
-import org.apache.spark.sql.{SparkSession, functions}
-import org.apache.spark.SparkContext
-import org.apache.spark.sql.types.{StructField, StructType, StringType}
+import org.apache.spark.sql.{ SparkSession, functions}
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
 
 object Application extends App {
@@ -32,11 +31,12 @@ object Application extends App {
 
   // Second task
 
-  //val total = csvDataFrame.agg(functions.sum("is_click")).first.getDouble(0).toInt
+  val total = csvDataFrame.agg(functions.sum("is_click")).first.getDouble(0).toInt
+  println("total:" + total)
 
   val PercentsDF = csvDataFrame.groupBy("ua") // group by ua
-    .agg(functions.sum("is_click").alias("clicks"))
-    .withColumn("percents", functions.col("clicks") / functions.sum("clicks").over() * 100)
-    .orderBy(functions.desc("percents"))
-    .show()
+    .agg(functions.count("is_click").alias("shows"))
+      .withColumn("percents_shows", functions.col("shows") / functions.sum("shows").over() * 100)
+      .orderBy(functions.desc("percents_shows"))
+
 }
