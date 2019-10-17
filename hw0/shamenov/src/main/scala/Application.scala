@@ -24,12 +24,15 @@ object Application extends App {
 
   csvDataFrame = csvDataFrame.groupBy("ua") // group by ua
     .agg(functions.sum("is_click").alias("clicks"), functions.count("is_click").alias("shows")) //  sum clicks for each ua
-    .where("clicks > 5")
+   // .where("clicks > 5")
     .orderBy(functions.desc("clicks"))
     .withColumn("CTR", functions.col("clicks") / functions.col("shows")).toDF()
     //.show(5) // show 5
 
-  csvDataFrame.show(5)
+
+  val moreFiveClicksDataFrame = csvDataFrame
+    .where("clicks > 5")
+    .show(5)
 
   // Second task
 
