@@ -22,21 +22,40 @@ object Application extends App {
   csvDataFrame = csvDataFrame
     .join(excludedFileDataFrame, Seq("ua"), "left_anti")
 
-  csvDataFrame.groupBy("ua") // group by ua
+  csvDataFrame = csvDataFrame.groupBy("ua") // group by ua
     .agg(functions.sum("is_click").alias("clicks"), functions.count("is_click").alias("shows")) //  sum clicks for each ua
     .where("clicks > 5")
     .orderBy(functions.desc("clicks"))
-    .withColumn("CTR", functions.col("clicks") / functions.col("shows"))
-    .show(5) // show 5
+    .withColumn("CTR", functions.col("clicks") / functions.col("shows")).toDF()
+    //.show(5) // show 5
+
+  csvDataFrame.show(5)
 
   // Second task
 
-  val total = csvDataFrame.agg(functions.sum("is_click")).first.getDouble(0).toInt
-  println("total:" + total)
+  val shows = csvDataFrame
+    .agg(functions.sum("shows"))
+    .first
+    .getLong(0).toInt
 
-  val PercentsDF = csvDataFrame.groupBy("ua") // group by ua
-    .agg(functions.count("is_click").alias("shows"))
-      .withColumn("percents_shows", functions.col("shows") / functions.sum("shows").over() * 100)
-      .orderBy(functions.desc("percents_shows"))
+  val total = shows / 2
 
+  println("shows:" + shows)
+  println("total is : " + total)
+
+  var sum : Long = 0
+  var index: Int = 0
+
+  csvDataFrame
+    .collect().foreach(row => {
+        sum = sum + row(2).toString.toLong
+        if(sum <= total)  {
+          index = index +1
+        }
+  })
+
+  println("index : " + index)
+
+  csvDataFrame
+    .show(index)
 }
