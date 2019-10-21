@@ -1,50 +1,57 @@
 package com.github.senyast4745.firstML
 
-import org.apache.spark.sql.{DataFrame, SparkSession, DataFrameNaFunctions}
-import  org.apache.spark.sql.functions;
-
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.expressions.Window
 
 object MainClass {
 
-  val spark: SparkSession = SparkSession
-    .builder()
-    .appName("Spark SQL basic example")
-    .config("spark.master", "local")
-    .getOrCreate()
+	def main(args: Array[String]): Unit = {
+		val spark =  SparkSession.builder
+			.appName("User Agents")
+			.master("local")
+			.getOrCreate()
 
-  val df: DataFrame = spark.read.csv("/home/arseny/WorkingFolder/TechoPolis/ML/FirstMLTask/hw0/ua_reactions.csv")
-  val df1: DataFrame = spark.read.text("/home/arseny/WorkingFolder/TechoPolis/ML/FirstMLTask/hw0/excluded.txt")
+		val mainDf = spark.read.option("header", "true").csv("./hw0/ua_reactions.csv").toDF().cache()
+		val exDf = spark.read.text("./hw0/excluded.txt").toDF("value").cache()
 
-  def main(args: Array[String]): Unit = {
-   /* df1.show()
-    df.show()
-    df.printSchema()*/
-    print(df.collect().length)
-    val list = df1.collect()
-//    val answ = df.filter(r => r(1) == "1" && !list.contains(r(0))).describe()
-//    answ.show()
-//df.filter(r => !list.contains(r(0))).groupBy(df.columns.apply(0).select).show()
-      // ...copy paste that for columns y and z
+		val groupDf = mainDf
+			.select("*")
+			.join(
+				broadcast(exDf),
+				mainDf("ua") === exDf("value"),
+				"left_anti")
+			.groupBy(col("ua"))
+			.agg(
+				count("*").alias("shows"),
+				sum(col("is_click")).alias("clicks"))
+			.withColumn(
+				"CTR",
+				round(expr(String.format("%s / %s", "clicks", "shows")), 3))
 
-    val first = df.filter(r => r(1) == "1" && !list.contains(r(0)))
-    val as =  first.groupBy(df.columns.apply(0))
-      .count()
-    var c = 0L
-    as.filter(r => r.apply(1).asInstanceOf[Long] > 5).sort(as.col("count").desc).show(5)
-    val count = first.count() * 0.5;
-    as.sort(as.col("count").desc).filter(r => {
-      c += r(1).asInstanceOf[Long]
-      c < count
-    }).show()
+		val first_task_df = groupDf
+			.filter(col("shows") > 5)
+			.orderBy(desc("CTR"))
+			.limit(5)
 
-    println(count * 2)
-    println(c)
+		first_task_df.show()
 
+		val sumShows = groupDf
+			.agg(sum("shows"))
+			.first()
+			.getLong(0)
 
-//    as.sort(as.col("count").desc).ma
-    /*.where(functiongs.col('count') > 1)
-    .select(functions.sum('count'))
-    .show()*/
-//    print(answ.collect().length)
-  }
+		val second_task_df = groupDf
+			.withColumn(
+				"per",
+				col("shows") / sumShows * 100)
+			.withColumn(
+				"total_percentile",
+				round(sum("per").over(Window.orderBy(desc("per"))), 3))
+			.filter(col("total_percentile") <= 50)
+
+		second_task_df.show()
+
+	}
 }
+
