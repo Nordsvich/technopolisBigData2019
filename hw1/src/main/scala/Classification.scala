@@ -1,3 +1,6 @@
+import org.apache.spark.ml.tuning.CrossValidator
+import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+import org.apache.spark.mllib.classification.SVMWithSGD
 import org.apache.spark.mllib.feature.PCA
 import org.apache.spark.mllib.linalg.Vectors
 import org.apache.spark.mllib.regression.LabeledPoint
@@ -23,36 +26,62 @@ object Classification {
         (label, point)
     })
 
-    val data: Dataset[LabeledPoint] = dataRaw
+    val data: RDD[LabeledPoint] = dataRaw
       .map { case (label, point) =>
         LabeledPoint(label, Vectors.dense(point))
-      }.toDS()
+      }
+
+    val pca = new PCA(33).fit(data.map(_.features))
+
+    val dataset = data.map(point => point.copy(features = pca
+      .transform(point.features))).toDS()
 
     val Array(training: Dataset[LabeledPoint], test: Dataset[LabeledPoint]) =
-      data.randomSplit(Array(0.85, 0.15), seed = 1234L)
+      dataset.randomSplit(Array(0.85, 0.15), seed = 1234L)
+
+    
+    //  DecisionTree
 
     val numClasses = 2
     val categoricalFeaturesInfo = Map[Int, Int]()
     val impurity = "gini"
-    val maxDepth = 15
+    val maxDepth = 12
     val maxBins = 35
 
-    val model = DecisionTree.trainClassifier(training.rdd, numClasses, categoricalFeaturesInfo,
+    val decisionTreeModel = DecisionTree.trainClassifier(training.rdd,
+      numClasses, categoricalFeaturesInfo,
       impurity, maxDepth, maxBins)
 
-    //Task classification
-    // Evaluate model on test instances and compute test error
+
     val predictLabels = test.map { point =>
-      val prediction = model.predict(point.features)
+      val prediction = decisionTreeModel.predict(point.features)
       (point.label, prediction)
     }
-    //predictLabels.show()
 
-    val testErr = predictLabels.filter(
-      row => row._1 != row._2
-    ).count().toDouble / test.count()
-    println("Test Error = " + testErr)
-   // println("Learned classification tree model:\n" + model.toDebugString)
+    val decisionTreeMetrics = new BinaryClassificationMetrics(predictLabels.rdd)
+    val decisionTreeMetricsAUROC = decisionTreeMetrics.areaUnderROC()
+
+    println(s"Area under ROC with decision tree = $decisionTreeMetricsAUROC")
+
+
+    //Linear Support Vector Machines
+
+    val numIterations = 40
+    val svmModel = SVMWithSGD.train(training.rdd, numIterations)
+
+    // Clear the default threshold.
+    svmModel.clearThreshold()
+
+    val scoreAndLabels = test.map { point =>
+      val prediction = svmModel.predict(point.features)
+      (point.label, prediction)
+    }
+
+    // Get evaluation metrics.
+    val svmMetrics = new BinaryClassificationMetrics(scoreAndLabels.rdd)
+    val auROCLSVM = svmMetrics.areaUnderROC()
+
+    println(s"Area under ROC with svm = $auROCLSVM")
 
     spark.stop()
   }
