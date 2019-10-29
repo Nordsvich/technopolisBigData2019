@@ -1,4 +1,5 @@
-import org.apache.spark.ml.tuning.CrossValidator
+import org.apache.spark.ml.classification.LogisticRegression
+import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
 import org.apache.spark.mllib.classification.SVMWithSGD
 import org.apache.spark.mllib.feature.PCA
@@ -81,7 +82,7 @@ object Classification {
     val svmMetrics = new BinaryClassificationMetrics(scoreAndLabels.rdd)
     val auROCLSVM = svmMetrics.areaUnderROC()
 
-    println(s"Area under ROC with svm = $auROCLSVM")
+    println(s"Area under ROC with lsvm = $auROCLSVM")
 
     spark.stop()
   }
