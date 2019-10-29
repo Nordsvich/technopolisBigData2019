@@ -1,4 +1,4 @@
-
+import org.apache.spark.mllib.feature.PCA
 import org.apache.spark.mllib.linalg.Vectors
 import org.apache.spark.mllib.regression.LabeledPoint
 import org.apache.spark.mllib.tree.DecisionTree
@@ -34,19 +34,23 @@ object Classification {
     val numClasses = 2
     val categoricalFeaturesInfo = Map[Int, Int]()
     val impurity = "gini"
-    val maxDepth = 12
-    val maxBins = 30
-
+    val maxDepth = 15
+    val maxBins = 35
 
     val model = DecisionTree.trainClassifier(training.rdd, numClasses, categoricalFeaturesInfo,
       impurity, maxDepth, maxBins)
 
+    //Task classification
     // Evaluate model on test instances and compute test error
     val predictLabels = test.map { point =>
       val prediction = model.predict(point.features)
       (point.label, prediction)
     }
-    val testErr = predictLabels.filter(r => r._1 != r._2).count().toDouble / test.count()
+    //predictLabels.show()
+
+    val testErr = predictLabels.filter(
+      row => row._1 != row._2
+    ).count().toDouble / test.count()
     println("Test Error = " + testErr)
    // println("Learned classification tree model:\n" + model.toDebugString)
 
