@@ -1,13 +1,11 @@
-import org.apache.spark.ml.classification.LogisticRegression
+import org.apache.spark.ml.Pipeline
+import org.apache.spark.ml.classification.RandomForestClassifier
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+import org.apache.spark.ml.feature.{LabeledPoint, PCA}
+import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
-import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
-import org.apache.spark.mllib.classification.SVMWithSGD
-import org.apache.spark.mllib.feature.PCA
-import org.apache.spark.mllib.linalg.Vectors
-import org.apache.spark.mllib.regression.LabeledPoint
-import org.apache.spark.mllib.tree.DecisionTree
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{Dataset, SparkSession}
+import org.apache.spark.sql.SparkSession
 
 
 object Classification {
@@ -20,69 +18,81 @@ object Classification {
 
     import spark.implicits._
 
-    val dataRaw = rawString.map(_.split(",")).map({
+    val rowData = rawString.map(_.split(",")).map({
       csv =>
         val label = csv.last.toDouble
         val point = csv.init.map(_.toDouble)
         (label, point)
     })
 
-    val data: RDD[LabeledPoint] = dataRaw
+    val rowDataset = rowData
       .map { case (label, point) =>
         LabeledPoint(label, Vectors.dense(point))
-      }
+    }.toDS()
 
-    val pca = new PCA(33).fit(data.map(_.features))
+    val pca = new PCA()
+      .setInputCol("features")
+      .setOutputCol("pca_features")
+      .setK(33)
+      .fit(rowDataset)
 
-    val dataset = data.map(point => point.copy(features = pca
-      .transform(point.features))).toDS()
+    val dataset = pca.transform(rowDataset)
+      .select("label", "pca_features")
+      .withColumnRenamed("pca_features", "features")
 
-    val Array(training: Dataset[LabeledPoint], test: Dataset[LabeledPoint]) =
-      dataset.randomSplit(Array(0.85, 0.15), seed = 1234L)
+    val seed = 1234L
+    val Array(trainingData, testData) = dataset.randomSplit(Array(0.85, 0.15), seed)
 
-    
-    //  DecisionTree
+    val randomForestClassifier = new RandomForestClassifier()
+      .setImpurity("gini")
+      .setMaxDepth(3)
+      .setNumTrees(20)
+      .setFeatureSubsetStrategy("auto")
+      .setSeed(seed)
 
-    val numClasses = 2
-    val categoricalFeaturesInfo = Map[Int, Int]()
-    val impurity = "gini"
-    val maxDepth = 12
-    val maxBins = 35
+    val stages = Array(randomForestClassifier)
 
-    val decisionTreeModel = DecisionTree.trainClassifier(training.rdd,
-      numClasses, categoricalFeaturesInfo,
-      impurity, maxDepth, maxBins)
+    val pipeline = new Pipeline()
+      .setStages(stages)
+
+    val pipelineModel = pipeline.fit(trainingData)
+
+    val pipelinePredictionDf = pipelineModel.transform(testData)
+    pipelinePredictionDf.show(10)
+
+    val evaluator = new BinaryClassificationEvaluator()
+      .setLabelCol("label")
+      .setMetricName("areaUnderROC")
+
+    val randomForestModel = randomForestClassifier.fit(trainingData)
+
+    val predictionDf = randomForestModel.transform(testData)
+
+    val paramGrid = new ParamGridBuilder()
+      .addGrid(randomForestClassifier.maxBins, Array(25, 28, 31))
+      .addGrid(randomForestClassifier.maxDepth, Array(4, 6, 8))
+      .addGrid(randomForestClassifier.impurity, Array("entropy", "gini"))
+      .build()
+
+    val cv = new CrossValidator()
+      .setEstimator(pipeline)
+      .setEvaluator(evaluator)
+      .setEstimatorParamMaps(paramGrid)
+      .setNumFolds(5)
+
+    val cvModel = cv.fit(trainingData)
+
+    // test cross validated model with test data
+    val cvPredictionDf = cvModel.transform(testData)
 
 
-    val predictLabels = test.map { point =>
-      val prediction = decisionTreeModel.predict(point.features)
-      (point.label, prediction)
-    }
+    val accuracy = evaluator.evaluate(predictionDf)
+    println("accuracy with random forest (ROC) = " + accuracy)
+    val pipelineAccuracy = evaluator.evaluate(pipelinePredictionDf)
+    println("pipelineAccuracy (ROC) = " + pipelineAccuracy)
+    val cvAccuracy = evaluator.evaluate(cvPredictionDf)
+    println("cvAccuracy (ROC) = " + cvAccuracy)
 
-    val decisionTreeMetrics = new BinaryClassificationMetrics(predictLabels.rdd)
-    val decisionTreeMetricsAUROC = decisionTreeMetrics.areaUnderROC()
-
-    println(s"Area under ROC with decision tree = $decisionTreeMetricsAUROC")
-
-
-    //Linear Support Vector Machines
-
-    val numIterations = 40
-    val svmModel = SVMWithSGD.train(training.rdd, numIterations)
-
-    // Clear the default threshold.
-    svmModel.clearThreshold()
-
-    val scoreAndLabels = test.map { point =>
-      val prediction = svmModel.predict(point.features)
-      (point.label, prediction)
-    }
-
-    // Get evaluation metrics.
-    val svmMetrics = new BinaryClassificationMetrics(scoreAndLabels.rdd)
-    val auROCLSVM = svmMetrics.areaUnderROC()
-
-    println(s"Area under ROC with lsvm = $auROCLSVM")
 
     spark.stop()
   }
