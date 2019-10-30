@@ -50,6 +50,7 @@ object Classification {
       .setMetricName("areaUnderROC")
 
     randomForestClassification(trainingData, testData, evaluator)
+    linearSupportVectorMachineClassification(trainingData, testData, evaluator)
 
     spark.stop()
   }
@@ -126,7 +127,7 @@ object Classification {
     val cv = getCrossValidator(pipeline, paramGrid, evaluator)
 
     val cvModel = cv.fit(trainingData)
-    
+
     val cvPredictionDf = cvModel.transform(testData)
 
     val accuracy = evaluator.evaluate(predictionDf)
