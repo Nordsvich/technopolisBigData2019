@@ -37,7 +37,7 @@ object Classification {
       .setK(33)
       .fit(rowDataset)
 
-    //features selection
+    //features selection (dimensional reduction) - get only 33 features from 100
 
     val dataset = pca.transform(rowDataset)
       .select("label", "pca_features")
@@ -66,15 +66,17 @@ object Classification {
       .setNumFolds(5)
   }
 
+  // classification with lsvm
+
   def linearSupportVectorMachineClassification(trainingData : Dataset[Row],
                                                testData : Dataset[Row],
                                                evaluator: BinaryClassificationEvaluator): Unit = {
     //lsvm
     val lsvc = new LinearSVC()
 
-    val randomForestModel = lsvc.fit(trainingData)
+    val lsvmModel = lsvc.fit(trainingData)
 
-    val predictionDf = randomForestModel.transform(testData)
+    val predictionDf = lsvmModel.transform(testData)
 
     val paramGrid = new ParamGridBuilder()
       .addGrid(lsvc.regParam, Array(0.1, 0.2, 0.3))
@@ -99,6 +101,9 @@ object Classification {
 
   }
 
+
+  // classification with random forest
+  
   def randomForestClassification(trainingData : Dataset[Row],
                                  testData : Dataset[Row],
                                  evaluator: BinaryClassificationEvaluator): Unit = {
