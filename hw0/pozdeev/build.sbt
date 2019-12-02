@@ -1,6 +1,6 @@
 
 scalaVersion := "2.12.10"
-name := "BigData2019"
+name := "BigData2019_hw0"
 organization := "ru.ok.technopolis"
 version := "1.0"
 
