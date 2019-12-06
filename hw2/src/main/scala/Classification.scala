@@ -4,25 +4,25 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row, SQLContext, SparkSession}
 
 object Classification {
 
+  val spark: SparkSession =  SparkSession.builder().appName("Classifier")
+    .config("spark.driver.maxResultSize", "2g")
+    .config("spark.master", "local").getOrCreate()
+
   def main(args: Array[String]): Unit = {
 
     val testPath = "./mlboot_test.tsv" // 6MB
     val trainPath = "./mlboot_train_answers.tsv" // 15 MB
 
-    val spark = SparkSession.builder().appName("Classifier")
-      .config("spark.driver.maxResultSize", "2g")
-      .config("spark.master", "local").getOrCreate()
 
+    val dataDF = loadDF()
 
-    val dataDF = loadDF(spark)
-
-    val testDf = joinDF(testPath, dataDF, spark)
-    val trainDf = joinDF(trainPath, dataDF, spark)
+    val testDf = joinDF(testPath, dataDF).show(6, truncate = false)
+    val trainDf = joinDF(trainPath, dataDF).show(6, truncate = false)
 
     spark.stop()
   }
 
-  def loadDF(spark: SparkSession): DataFrame = {
+  def loadDF(): DataFrame = {
     val dataPath = "./mlboot_data.tsv" // 11 GB
 
     import spark.implicits._
@@ -46,8 +46,7 @@ object Classification {
   }
 
   def joinDF(path: String,
-             dataFrame: DataFrame,
-             spark: SparkSession): DataFrame = {
+             dataFrame: DataFrame): DataFrame = {
 
     val df = spark.read.format("csv")
       .option("header", "true")
