@@ -1,3 +1,4 @@
+import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions.{array, explode, udf}
@@ -44,20 +45,23 @@ object Classification {
       .schema(schema)
       .csv(spark.sparkContext.textFile(dataPath, 500).toDS())
 
-     val dataDF = tempDataDF
-       .withColumn("features", array(tempDataDF("feature_1"), tempDataDF("feature_2"), tempDataDF("feature_3")))
-       .withColumn("features", explode($"features"))
-       .withColumn("features", splitStringArray($"features"))
-       .drop("feature_1")
-       .drop("feature_2")
-       .drop("feature_3")
+    val dataDF = tempDataDF
+      .withColumn("features", array(tempDataDF("feature_1"), tempDataDF("feature_2"), tempDataDF("feature_3")))
+      .withColumn("features", explode($"features"))
+      .withColumn("features", splitStringArray($"features"))
+      .drop("feature_1")
+      .drop("feature_2")
+      .drop("feature_3")
 
     dataDF
   }
 
   def splitStringArray: UserDefinedFunction = udf((json: String) => {
-    json.substring(1, json.length - 1).split(",").map(_.trim)
+    json.substring(1, json.length - 1).split(",").map(string => {
+      string.trim.replace("\"", "")
+    })
   })
+
 
   def joinDF(path: String,
              dataFrame: DataFrame): DataFrame = {
