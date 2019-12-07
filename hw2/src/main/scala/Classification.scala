@@ -1,9 +1,9 @@
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions.struct
+import org.apache.spark.sql.functions.{array, explode}
 
 object Classification {
 
-  val spark: SparkSession =  SparkSession.builder().appName("Classifier")
+  val spark: SparkSession = SparkSession.builder().appName("Classifier")
     .config("spark.driver.maxResultSize", "2g")
     .config("spark.master", "local").getOrCreate()
 
@@ -29,7 +29,7 @@ object Classification {
 
     val schema = StructType(Array(
       StructField("cuid", StringType, nullable = true),
-      StructField("cat_feature", LongType, nullable = true),
+      StructField("cat_feature", IntegerType, nullable = true),
       StructField("feature_1", StringType, nullable = true),
       StructField("feature_2", StringType, nullable = true),
       StructField("feature_3", StringType, nullable = true),
@@ -42,11 +42,12 @@ object Classification {
       .schema(schema)
       .csv(spark.sparkContext.textFile(dataPath, 500).toDS())
 
-    val dataDF = tempDataDF
-      .withColumn("features", struct(tempDataDF("feature_1"), tempDataDF("feature_2"), tempDataDF("feature_3")))
-      .drop("feature_1")
-      .drop("feature_2")
-      .drop("feature_3")
+     val dataDF = tempDataDF
+       .withColumn("features", array(tempDataDF("feature_1"), tempDataDF("feature_2"), tempDataDF("feature_3")))
+       .withColumn("features", explode($"features"))
+       .drop("feature_1")
+       .drop("feature_2")
+       .drop("feature_3")
 
     dataDF
   }
