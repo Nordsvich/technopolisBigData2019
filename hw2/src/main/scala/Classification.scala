@@ -1,10 +1,11 @@
+import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions.{array, explode}
+import org.apache.spark.sql.functions.{array, explode, udf}
 
 object Classification {
 
   val spark: SparkSession = SparkSession.builder().appName("Classifier")
-    .config("spark.driver.maxResultSize", "2g")
+    .config("spark.driver.maxResultSize", "1g")
     .config("spark.master", "local").getOrCreate()
 
   def main(args: Array[String]): Unit = {
@@ -15,8 +16,9 @@ object Classification {
 
     val dataDF = loadDF()
 
-    val testDf = joinDF(testPath, dataDF).show(6, truncate = false)
-    val trainDf = joinDF(trainPath, dataDF).show(6, truncate = false)
+    val testDf = joinDF(testPath, dataDF).show(4, truncate = false)
+    val trainDf = joinDF(trainPath, dataDF)
+
 
     spark.stop()
   }
@@ -45,12 +47,17 @@ object Classification {
      val dataDF = tempDataDF
        .withColumn("features", array(tempDataDF("feature_1"), tempDataDF("feature_2"), tempDataDF("feature_3")))
        .withColumn("features", explode($"features"))
+       .withColumn("features", splitStringArray($"features"))
        .drop("feature_1")
        .drop("feature_2")
        .drop("feature_3")
 
     dataDF
   }
+
+  def splitStringArray: UserDefinedFunction = udf((json: String) => {
+    json.substring(1, json.length - 1).split(",").map(_.trim)
+  })
 
   def joinDF(path: String,
              dataFrame: DataFrame): DataFrame = {
@@ -60,6 +67,8 @@ object Classification {
       .option("delimiter", "\t")
       .load(path)
       .join(dataFrame, Seq("cuid"), "inner")
+
+    df.printSchema()
 
     df
   }
