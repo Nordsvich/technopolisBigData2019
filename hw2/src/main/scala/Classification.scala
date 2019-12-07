@@ -1,6 +1,5 @@
-import org.apache.spark.SparkContext
-import org.apache.spark.ml.feature.Imputer
-import org.apache.spark.sql.{DataFrame, Dataset, Row, SQLContext, SparkSession}
+import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.functions.struct
 
 object Classification {
 
@@ -37,12 +36,19 @@ object Classification {
       StructField("dt_diff", LongType, nullable = true))
     )
 
-    val dataDF = spark.read.format("csv")
+    val tempDataDF = spark.read.format("csv")
       .option("header", "false")
       .option("delimiter", "\t")
       .schema(schema)
       .csv(spark.sparkContext.textFile(dataPath, 500).toDS())
-    dataDF;
+
+    val dataDF = tempDataDF
+      .withColumn("features", struct(tempDataDF("feature_1"), tempDataDF("feature_2"), tempDataDF("feature_3")))
+      .drop("feature_1")
+      .drop("feature_2")
+      .drop("feature_3")
+
+    dataDF
   }
 
   def joinDF(path: String,
@@ -53,6 +59,7 @@ object Classification {
       .option("delimiter", "\t")
       .load(path)
       .join(dataFrame, Seq("cuid"), "inner")
+
     df
   }
 }
