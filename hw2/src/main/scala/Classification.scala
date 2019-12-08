@@ -12,9 +12,9 @@ import org.apache.spark.sql.types.DoubleType
 object Classification {
 
   val spark: SparkSession = SparkSession.builder().appName("Classifier")
-    .config("spark.driver.maxResultSize", "10g")
-    .config("spark.driver.memory", "6g")
-    .config("spark.executor.memory ", "6g")
+    .config("spark.driver.maxResultSize", "5g")
+    .config("spark.driver.memory", "3g")
+    .config("spark.executor.memory ", "3g")
     .config("spark.memory.offHeap.size", "4g")
     .config("spark.memory.offHeap.enabled", "true")
     .config("spark.master", "local").getOrCreate()
