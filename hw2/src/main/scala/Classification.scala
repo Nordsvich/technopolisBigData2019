@@ -73,8 +73,8 @@ object Classification {
       .setFeaturesCol("nn_features")
 
     val paramGrid = new ParamGridBuilder()
-      .addGrid(neuralNetwork.blockSize, Array(64, 128, 256))
-      .addGrid(neuralNetwork.maxIter, Array(60, 70, 80, 90, 100))
+      .addGrid(neuralNetwork.blockSize, Array(24, 36, 48))
+      .addGrid(neuralNetwork.maxIter, Array(1, 4, 8, 12, 15))
       .build()
 
     val pipeline = new Pipeline()
