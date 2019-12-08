@@ -1,7 +1,9 @@
+import java.util
+
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions.{array, explode, udf}
+import org.apache.spark.sql.functions.{array, col, explode, udf}
 
 object Classification {
 
@@ -39,41 +41,52 @@ object Classification {
       StructField("dt_diff", LongType, nullable = true))
     )
 
-    val tempDataDF = spark.read.format("csv")
+    val dataDF = spark.read.format("csv")
       .option("header", "false")
       .option("delimiter", "\t")
       .schema(schema)
       .csv(spark.sparkContext.textFile(dataPath, 500).toDS())
 
-    val dataDF = tempDataDF
-      .withColumn("features", array(tempDataDF("feature_1"), tempDataDF("feature_2"), tempDataDF("feature_3")))
-      .withColumn("features", explode($"features"))
-      .withColumn("features", splitStringArray($"features"))
-      .drop("feature_1")
-      .drop("feature_2")
-      .drop("feature_3")
-
     dataDF
   }
 
-  def splitStringArray: UserDefinedFunction = udf((json: String) => {
-    json.substring(1, json.length - 1).split(",").map(string => {
-      string.trim.replace("\"", "")
-    })
+  def vectorSparse: UserDefinedFunction = udf((json: String) => {
+    val map:collection.mutable.Map[Int, Double] = collection.mutable.Map()
+    json.substring(1, json.length - 1).split(",").map(_.trim.replace("\"", ""))
+      .foreach(string => {
+        if(!string.equals("")) {
+          val splitStr = string.split(":")
+          val index = splitStr(0).toInt
+          val value = splitStr(1).toDouble
+          map(index) = value
+        }
+      })
+    var size = 0
+    if(map.nonEmpty) {
+      size = map.keysIterator.reduceLeft((x, y) => if (x > y) x else y) + 1
+    }
+    Vectors.sparse(size, map.toSeq)
   })
-
 
   def joinDF(path: String,
              dataFrame: DataFrame): DataFrame = {
 
-    val df = spark.read.format("csv")
+    val tempDataDF = spark.read.format("csv")
       .option("header", "true")
       .option("delimiter", "\t")
       .load(path)
       .join(dataFrame, Seq("cuid"), "inner")
 
-    df.printSchema()
+    val dataDF = tempDataDF
+      .withColumn("features", array(tempDataDF("feature_1"), tempDataDF("feature_2"), tempDataDF("feature_3")))
+      .withColumn("features", explode(col("features")))
+      .withColumn("features", vectorSparse(col("features")))
+      .drop("feature_1")
+      .drop("feature_2")
+      .drop("feature_3")
 
-    df
+    dataDF.printSchema()
+
+    dataDF
   }
 }
