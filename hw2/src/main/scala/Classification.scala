@@ -1,5 +1,4 @@
-import java.util
-
+import org.apache.spark.ml.feature.{OneHotEncoderEstimator, VectorAssembler}
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.{DataFrame, SparkSession}
@@ -19,9 +18,8 @@ object Classification {
 
     val dataDF = loadDF()
 
-    val testDf = joinDF(testPath, dataDF).show(4, truncate = false)
-    val trainDf = joinDF(trainPath, dataDF)
-
+    val testDf = joinDF(testPath, dataDF).show(1000, truncate = false)
+    val trainDf = joinDF(trainPath, dataDF).show(1000, truncate = false)
 
     spark.stop()
   }
@@ -51,10 +49,10 @@ object Classification {
   }
 
   def vectorSparse: UserDefinedFunction = udf((json: String) => {
-    val map:collection.mutable.Map[Int, Double] = collection.mutable.Map()
+    val map: collection.mutable.Map[Int, Double] = collection.mutable.Map()
     json.substring(1, json.length - 1).split(",").map(_.trim.replace("\"", ""))
       .foreach(string => {
-        if(!string.equals("")) {
+        if (!string.equals("")) {
           val splitStr = string.split(":")
           val index = splitStr(0).toInt
           val value = splitStr(1).toDouble
@@ -62,7 +60,7 @@ object Classification {
         }
       })
     var size = 0
-    if(map.nonEmpty) {
+    if (map.nonEmpty) {
       size = map.keysIterator.reduceLeft((x, y) => if (x > y) x else y) + 1
     }
     Vectors.sparse(size, map.toSeq)
@@ -78,15 +76,30 @@ object Classification {
       .join(dataFrame, Seq("cuid"), "inner")
 
     val dataDF = tempDataDF
-      .withColumn("features", array(tempDataDF("feature_1"), tempDataDF("feature_2"), tempDataDF("feature_3")))
-      .withColumn("features", explode(col("features")))
-      .withColumn("features", vectorSparse(col("features")))
+      .withColumn("features_j", array(tempDataDF("feature_1"), tempDataDF("feature_2"), tempDataDF("feature_3")))
+      .withColumn("features_j", explode(col("features_j")))
+      .withColumn("features_j", vectorSparse(col("features_j")))
       .drop("feature_1")
       .drop("feature_2")
       .drop("feature_3")
 
-    dataDF.printSchema()
+    val df = new OneHotEncoderEstimator()
+      .setInputCols(Array("cat_feature"))
+      .setOutputCols(Array("cat_vector"))
+      .fit(dataDF)
+      .transform(dataDF)
+      .drop("cat_feature")
 
-    dataDF
+    val vectorAssembler = new VectorAssembler()
+      .setInputCols(Array("dt_diff", "features_j", "cat_vector"))
+      .setOutputCol("features")
+
+    val asmDF = vectorAssembler.transform(df)
+      .drop("features_j")
+      .drop("cat_vector")
+      .drop("dt_diff")
+
+    asmDF.printSchema()
+    asmDF
   }
 }
