@@ -1,5 +1,5 @@
 import org.apache.spark.ml.Pipeline
-import org.apache.spark.ml.classification.MultilayerPerceptronClassifier
+import org.apache.spark.ml.classification.{MultilayerPerceptronClassifier, RandomForestClassifier}
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 import org.apache.spark.ml.feature.{ChiSqSelector, LabeledPoint, OneHotEncoderEstimator, StandardScaler, VectorAssembler}
 import org.apache.spark.ml.linalg.{Vector, Vectors}
@@ -66,19 +66,18 @@ object Classification {
       .setLabelCol("label")
       .setMetricName("areaUnderROC")
 
-    val layers = Array[Int](4, 5, 4, 3)
-
-    val neuralNetwork = new MultilayerPerceptronClassifier()
-      .setLayers(layers)
-      .setFeaturesCol("nn_features")
+    val randomForestClassifier = new RandomForestClassifier()
+      .setFeaturesCol("rf_features")
 
     val paramGrid = new ParamGridBuilder()
-      .addGrid(neuralNetwork.blockSize, Array(24, 36, 48))
-      .addGrid(neuralNetwork.maxIter, Array(1, 4, 8, 12, 15))
+      .addGrid(randomForestClassifier.maxBins, Array(25, 28, 31))
+      .addGrid(randomForestClassifier.maxDepth, Array(4, 6, 8))
+      .addGrid(randomForestClassifier.numTrees, Array(12, 15, 18))
+      .addGrid(randomForestClassifier.impurity, Array("entropy", "gini"))
       .build()
 
     val pipeline = new Pipeline()
-      .setStages(Array(selector, scaler, neuralNetwork))
+      .setStages(Array(selector, scaler, randomForestClassifier))
 
     val crossValidator = new CrossValidator()
       .setEstimator(pipeline)
