@@ -12,7 +12,11 @@ import org.apache.spark.sql.types.DoubleType
 object Classification {
 
   val spark: SparkSession = SparkSession.builder().appName("Classifier")
-    .config("spark.driver.maxResultSize", "1g")
+    .config("spark.driver.maxResultSize", "10g")
+    .config("spark.driver.memory", "6g")
+    .config("spark.executor.memory ", "6g")
+    .config("spark.memory.offHeap.size", "4g")
+    .config("spark.memory.offHeap.enabled", "true")
     .config("spark.master", "local").getOrCreate()
 
   def main(args: Array[String]): Unit = {
@@ -88,7 +92,7 @@ object Classification {
 
     val accuracy = evaluator.evaluate(cvPredictionDF)
 
-    println("Accuracy (ROC) with cross validation = " + accuracy)
+    println("Accuracy (ROC) with cross validation = " + accuracy) // accuracy (ROC) is
   }
 
   def loadDF(): DataFrame = {
@@ -110,7 +114,7 @@ object Classification {
       .option("header", "false")
       .option("delimiter", "\t")
       .schema(schema)
-      .csv(spark.sparkContext.textFile(dataPath, 500).toDS())
+      .csv(spark.sparkContext.textFile(dataPath, 1000).toDS())
 
     dataDF
   }
@@ -166,7 +170,6 @@ object Classification {
       .drop("cat_vector")
       .drop("dt_diff")
       .drop("cuid")
-
 
     asmDF.printSchema()
 
