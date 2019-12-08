@@ -67,6 +67,7 @@ object Classification {
       .setMetricName("areaUnderROC")
 
     val randomForestClassifier = new RandomForestClassifier()
+      .setLabelCol("label")
       .setFeaturesCol("rf_features")
 
     val paramGrid = new ParamGridBuilder()
