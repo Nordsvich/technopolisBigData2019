@@ -70,9 +70,9 @@ object Classification {
       .setFeaturesCol("rf_features")
 
     val paramGrid = new ParamGridBuilder()
-      .addGrid(randomForestClassifier.maxBins, Array(25, 28, 31))
-      .addGrid(randomForestClassifier.maxDepth, Array(4, 6, 8))
-      .addGrid(randomForestClassifier.numTrees, Array(12, 15, 18))
+      .addGrid(randomForestClassifier.maxBins, Array(10, 15, 25))
+      .addGrid(randomForestClassifier.maxDepth, Array(3, 5, 7))
+      .addGrid(randomForestClassifier.numTrees, Array(9, 12, 16))
       .addGrid(randomForestClassifier.impurity, Array("entropy", "gini"))
       .build()
 
