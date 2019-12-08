@@ -1,8 +1,13 @@
-import org.apache.spark.ml.feature.{OneHotEncoderEstimator, VectorAssembler}
-import org.apache.spark.ml.linalg.Vectors
+import org.apache.spark.ml.Pipeline
+import org.apache.spark.ml.classification.MultilayerPerceptronClassifier
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+import org.apache.spark.ml.feature.{ChiSqSelector, LabeledPoint, OneHotEncoderEstimator, StandardScaler, VectorAssembler}
+import org.apache.spark.ml.linalg.{Vector, Vectors}
+import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions.{array, col, explode, udf}
+import org.apache.spark.sql.types.DoubleType
 
 object Classification {
 
@@ -15,13 +20,72 @@ object Classification {
     val testPath = "./mlboot_test.tsv" // 6MB
     val trainPath = "./mlboot_train_answers.tsv" // 15 MB
 
+    import spark.implicits._
 
     val dataDF = loadDF()
 
-    val testDf = joinDF(testPath, dataDF).show(1000, truncate = false)
-    val trainDf = joinDF(trainPath, dataDF).show(1000, truncate = false)
+    val testDf = joinDF(testPath, dataDF)
+
+    val trainDf = joinDF(trainPath, dataDF) // with labels
+      .withColumnRenamed("target", "label")
+      .withColumn("label", col("label").cast(DoubleType))
+      .rdd.map(row => {
+      val label: Double = row.getAs[Double]("label")
+      val features: Vector = row.getAs[Vector]("features")
+      LabeledPoint(label, features)
+    }).toDF()
+
+    classification(testDf, trainDf)
 
     spark.stop()
+  }
+
+  def classification(testDF: DataFrame,
+                     trainDF: DataFrame): Unit = {
+
+    val selector = new ChiSqSelector()
+      .setFdr(0.2)
+      .setFeaturesCol("features")
+      .setLabelCol("label")
+      .setOutputCol("selectedFeatures")
+
+    val scaler = new StandardScaler()
+      .setInputCol("selectedFeatures")
+      .setOutputCol("features")
+      .setWithStd(true)
+      .setWithMean(true)
+
+    val evaluator = new BinaryClassificationEvaluator()
+      .setLabelCol("label")
+      .setMetricName("areaUnderROC")
+
+    val layers = Array[Int](4, 5, 4, 3)
+
+    val neuralNetwork = new MultilayerPerceptronClassifier()
+      .setLayers(layers)
+
+    val paramGrid = new ParamGridBuilder()
+      .addGrid(neuralNetwork.blockSize, Array(64, 128, 256))
+      .addGrid(neuralNetwork.maxIter, Array(60, 70, 80, 90, 100))
+      .build()
+
+
+    val pipline = new Pipeline()
+      .setStages(Array(selector, scaler, neuralNetwork))
+
+    val crossValidator = new CrossValidator()
+      .setEstimator(pipline)
+      .setEvaluator(evaluator)
+      .setEstimatorParamMaps(paramGrid)
+      .setNumFolds(5)
+
+    val cvModel = crossValidator.fit(trainDF)
+
+    val cvPredictionDF = cvModel.transform(testDF)
+
+    val accuracy = evaluator.evaluate(cvPredictionDF)
+
+    println("Accuracy (ROC) with cross validation = " + accuracy)
   }
 
   def loadDF(): DataFrame = {
@@ -98,8 +162,10 @@ object Classification {
       .drop("features_j")
       .drop("cat_vector")
       .drop("dt_diff")
+      .drop("cuid")
 
-    asmDF.printSchema()
+
+    //asmDF.printSchema()
     asmDF
   }
 }
