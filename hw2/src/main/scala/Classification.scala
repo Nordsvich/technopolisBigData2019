@@ -43,6 +43,9 @@ object Classification {
   def classification(testDF: DataFrame,
                      trainDF: DataFrame): Unit = {
 
+    testDF.printSchema()
+    trainDF.printSchema()
+
     val selector = new ChiSqSelector()
       .setFdr(0.2)
       .setFeaturesCol("features")
@@ -51,7 +54,7 @@ object Classification {
 
     val scaler = new StandardScaler()
       .setInputCol("selectedFeatures")
-      .setOutputCol("features")
+      .setOutputCol("nn_features")
       .setWithStd(true)
       .setWithMean(true)
 
@@ -63,18 +66,18 @@ object Classification {
 
     val neuralNetwork = new MultilayerPerceptronClassifier()
       .setLayers(layers)
+      .setFeaturesCol("nn_features")
 
     val paramGrid = new ParamGridBuilder()
       .addGrid(neuralNetwork.blockSize, Array(64, 128, 256))
       .addGrid(neuralNetwork.maxIter, Array(60, 70, 80, 90, 100))
       .build()
 
-
-    val pipline = new Pipeline()
+    val pipeline = new Pipeline()
       .setStages(Array(selector, scaler, neuralNetwork))
 
     val crossValidator = new CrossValidator()
-      .setEstimator(pipline)
+      .setEstimator(pipeline)
       .setEvaluator(evaluator)
       .setEstimatorParamMaps(paramGrid)
       .setNumFolds(5)
@@ -165,7 +168,8 @@ object Classification {
       .drop("cuid")
 
 
-    //asmDF.printSchema()
+    asmDF.printSchema()
+
     asmDF
   }
 }
