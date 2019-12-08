@@ -1,5 +1,5 @@
 import org.apache.spark.ml.Pipeline
-import org.apache.spark.ml.classification.{MultilayerPerceptronClassifier, RandomForestClassifier}
+import org.apache.spark.ml.classification.RandomForestClassifier
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 import org.apache.spark.ml.feature.{ChiSqSelector, LabeledPoint, OneHotEncoderEstimator, StandardScaler, VectorAssembler}
 import org.apache.spark.ml.linalg.{Vector, Vectors}
@@ -58,7 +58,7 @@ object Classification {
 
     val scaler = new StandardScaler()
       .setInputCol("selectedFeatures")
-      .setOutputCol("nn_features")
+      .setOutputCol("rf_features")
       .setWithStd(true)
       .setWithMean(true)
 
