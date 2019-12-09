@@ -50,7 +50,7 @@ object Classification {
 
     println("Count test DF = {" + testDF.count() + "}")
     println("Count train DF = {" + trainDF.count() + "}")
-    /*
+
     val selector = new ChiSqSelector()
       .setFdr(0.1)
       .setFeaturesCol("features")
@@ -93,7 +93,7 @@ object Classification {
 
     val accuracy = evaluator.evaluate(cvPredictionDF)
 
-    println("Accuracy (ROC) with cross validation = " + accuracy) // accuracy (ROC) is*/
+    println("Accuracy (ROC) with cross validation = " + accuracy)    // accuracy (ROC) is*/
   }
 
   def loadDF(): DataFrame = {
@@ -146,8 +146,7 @@ object Classification {
       .option("delimiter", "\t")
       .load(path)
 
-
-    val joinedDF = tempDataDF.join(dataFrame, Seq("cuid"), "left_anti")
+    val joinedDF = tempDataDF.join(dataFrame, Seq("cuid"), "inner")
 
     val dataDF = joinedDF
       .withColumn("features_j", array(joinedDF("feature_1"), joinedDF("feature_2"), joinedDF("feature_3")))
