@@ -13,6 +13,7 @@ object Classification {
 
   val spark: SparkSession = SparkSession.builder().appName("Classifier")
     .config("spark.driver.maxResultSize", "5g")
+    .config("spark.sql.shuffle.partitions", "5")
     .config("spark.driver.memory", "3g")
     .config("spark.executor.memory ", "3g")
     .config("spark.memory.offHeap.size", "4g")
@@ -47,11 +48,11 @@ object Classification {
   def classification(testDF: DataFrame,
                      trainDF: DataFrame): Unit = {
 
-    testDF.printSchema()
-    trainDF.printSchema()
-
+    println("Count test DF = {" + testDF.count() + "}")
+    println("Count train DF = {" + trainDF.count() + "}")
+    /*
     val selector = new ChiSqSelector()
-      .setFdr(0.2)
+      .setFdr(0.1)
       .setFeaturesCol("features")
       .setLabelCol("label")
       .setOutputCol("selectedFeatures")
@@ -71,9 +72,9 @@ object Classification {
       .setFeaturesCol("rf_features")
 
     val paramGrid = new ParamGridBuilder()
-      .addGrid(randomForestClassifier.maxBins, Array(10, 15, 25))
+      .addGrid(randomForestClassifier.maxBins, Array(9, 12, 18))
       .addGrid(randomForestClassifier.maxDepth, Array(3, 5, 7))
-      .addGrid(randomForestClassifier.numTrees, Array(9, 12, 16))
+      .addGrid(randomForestClassifier.numTrees, Array(9, 12, 15))
       .addGrid(randomForestClassifier.impurity, Array("entropy", "gini"))
       .build()
 
@@ -92,7 +93,7 @@ object Classification {
 
     val accuracy = evaluator.evaluate(cvPredictionDF)
 
-    println("Accuracy (ROC) with cross validation = " + accuracy) // accuracy (ROC) is
+    println("Accuracy (ROC) with cross validation = " + accuracy) // accuracy (ROC) is*/
   }
 
   def loadDF(): DataFrame = {
@@ -114,7 +115,7 @@ object Classification {
       .option("header", "false")
       .option("delimiter", "\t")
       .schema(schema)
-      .csv(spark.sparkContext.textFile(dataPath, 1000).toDS())
+      .csv(spark.sparkContext.textFile(dataPath, 700).toDS())
 
     dataDF
   }
@@ -144,10 +145,12 @@ object Classification {
       .option("header", "true")
       .option("delimiter", "\t")
       .load(path)
-      .join(dataFrame, Seq("cuid"), "inner")
 
-    val dataDF = tempDataDF
-      .withColumn("features_j", array(tempDataDF("feature_1"), tempDataDF("feature_2"), tempDataDF("feature_3")))
+
+    val joinedDF = tempDataDF.join(dataFrame, Seq("cuid"), "left_anti")
+
+    val dataDF = joinedDF
+      .withColumn("features_j", array(joinedDF("feature_1"), joinedDF("feature_2"), joinedDF("feature_3")))
       .withColumn("features_j", explode(col("features_j")))
       .withColumn("features_j", vectorSparse(col("features_j")))
       .drop("feature_1")
