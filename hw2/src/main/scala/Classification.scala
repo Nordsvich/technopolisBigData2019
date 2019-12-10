@@ -1,7 +1,7 @@
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.classification.MultilayerPerceptronClassifier
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
-import org.apache.spark.ml.feature.{ChiSqSelector, OneHotEncoderEstimator, StandardScaler, VectorAssembler}
+import org.apache.spark.ml.feature.{ChiSqSelector, StandardScaler, VectorAssembler}
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.sql.expressions.UserDefinedFunction
@@ -160,7 +160,7 @@ object Classification {
         * root
         * |-- cuid: string (nullable = true)
         * |-- cat_features: array (nullable = true)
-        * |    |-- element: dobule (containsNull = true)
+        * |    |-- element: double (containsNull = true)
         * |-- date_diff: long (nullable = true)
         * |-- combinemaps(map_features): map (nullable = true)
         * |    |-- key: integer
