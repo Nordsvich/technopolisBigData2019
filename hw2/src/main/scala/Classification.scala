@@ -63,10 +63,7 @@ object Classification {
     val evaluator = new BinaryClassificationEvaluator()
       .setLabelCol("label")
       .setMetricName("areaUnderROC")
-
-    val layersVal1 = Array[Int](4, 5, 4, 3)
-    val layersVal2 = Array[Int](3, 4, 3, 3)
-
+    
     // create the trainer and set its parameters
     val randomForestClassifier = new RandomForestClassifier()
       .setLabelCol("label")
