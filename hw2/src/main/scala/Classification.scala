@@ -42,7 +42,7 @@ object Classification {
     val oneHotEncoderEstimator = new OneHotEncoderEstimator()
       .setInputCols(Array("cat_features"))
       .setOutputCols(Array("cat_vector"))
-
+    
     val vectorAssembler = new VectorAssembler()
       .setInputCols(Array("cat_vector", "date_diff", "vectors_features"))
       .setOutputCol("features")
@@ -132,7 +132,7 @@ object Classification {
       .option("header", "false")
       .option("delimiter", "\t")
       .schema(schema)
-      .csv(spark.sparkContext.textFile(path, 1000).toDS())
+      .csv(spark.sparkContext.textFile(path, 650).toDS())
 
     val combineMaps = new CombineMaps[Int, Double](IntegerType, DoubleType, _ + _)
 
