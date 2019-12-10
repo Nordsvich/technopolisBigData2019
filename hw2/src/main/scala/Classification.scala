@@ -145,17 +145,6 @@ object Classification {
         collect_set("cat_features") as "cat_array",
         collect_set("dats_diff") as "dt_diff",
         combineMaps(col("map_features")))
-
-      /*
-        * root
-        * |-- cuid: string (nullable = true)
-        * |-- cat_features: array (nullable = true)
-        * |    |-- element: double (containsNull = true)
-        * |-- date_diff: long (nullable = true)
-        * |-- combinemaps(map_features): map (nullable = true)
-        * |    |-- key: integer
-        * |    |-- value: double (valueContainsNull = true)
-      */
       .withColumn("vectors_features", mapToSparse(col("combinemaps(map_features)")))
       .withColumn("date_diff_vector", convertArrayToVector(col("dt_diff")))
       .withColumn("cat_vector", convertArrayToVector(col("cat_array")))
@@ -172,5 +161,11 @@ object Classification {
     udf((features: mutable.WrappedArray[Double]) => Vectors.dense(features.toArray))
 
   def mapToSparse: UserDefinedFunction =
-    udf((map: Map[Int, Double]) => Vectors.sparse(map.max._1 + 1, map.toSeq))
+    udf((map: Map[Int, Double]) => {
+      var size = 0
+      if(map.nonEmpty) {
+       size =  map.keysIterator.reduceLeft((x, y) => if (x > y) x else y)
+      }
+      Vectors.sparse(size + 100, map.toSeq)
+    })
 }
