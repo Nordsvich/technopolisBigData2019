@@ -1,7 +1,7 @@
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.classification.RandomForestClassifier
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
-import org.apache.spark.ml.feature.{LabeledPoint, StandardScaler, VectorAssembler}
+import org.apache.spark.ml.feature.{LabeledPoint, PCA, StandardScaler, VectorAssembler}
 import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.sql.expressions.UserDefinedFunction
@@ -49,8 +49,12 @@ object Classification {
   def classification(testDF: DataFrame,
                      trainDF: DataFrame): Unit = {
 
-    val scaler = new StandardScaler()
+    val pca = new PCA()
       .setInputCol("features")
+      .setOutputCol("d_features")
+
+    val scaler = new StandardScaler()
+      .setInputCol("d_features")
       .setOutputCol("rf_features")
       .setWithStd(true)
       .setWithMean(true)
@@ -72,7 +76,7 @@ object Classification {
       .build()
 
     val pipeline = new Pipeline()
-      .setStages(Array( scaler, randomForestClassifier))
+      .setStages(Array(pca, scaler, randomForestClassifier))
 
     val crossValidator = new CrossValidator()
       .setEstimator(pipeline)
