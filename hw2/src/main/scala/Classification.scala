@@ -50,17 +50,17 @@ object Classification {
       .setOutputCol("selected_cat_vector")
 
     val pcaSelector = new PCA()
-      .setInputCol("dat_diff")
-      .setOutputCol("date_diff")
+      .setInputCol("date_diff_vector")
+      .setOutputCol("date_diff_features")
       .setK(1)
 
     val vectorAssembler = new VectorAssembler()
-      .setInputCols(Array("selected_cat_vector", "date_diff_vector", "vectors_features"))
+      .setInputCols(Array("selected_cat_vector", "date_diff_features", "vectors_features"))
       .setOutputCol("features")
 
     val scaler = new StandardScaler()
       .setInputCol("features")
-      .setOutputCol("nn_features")
+      .setOutputCol("rf_features")
       .setWithStd(true)
       .setWithMean(true)
 
@@ -71,7 +71,7 @@ object Classification {
     // create the trainer and set its parameters
     val randomForestClassifier = new RandomForestClassifier()
       .setLabelCol("label")
-      .setFeaturesCol("nn_features")
+      .setFeaturesCol("rf_features")
 
     val paramGrid = new ParamGridBuilder()
       .addGrid(randomForestClassifier.maxBins, Array(15, 25, 35, 45))
