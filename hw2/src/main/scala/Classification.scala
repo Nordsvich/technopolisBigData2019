@@ -70,6 +70,8 @@ object Classification {
     // create the trainer and set its parameters
     val neuralNetwork = new MultilayerPerceptronClassifier()
       .setSeed(1234L)
+      .setLabelCol("target")
+      .setFeaturesCol("nn_features")
 
     val paramGrid = new ParamGridBuilder()
       .addGrid(neuralNetwork.maxIter, Array(5, 10, 15))
