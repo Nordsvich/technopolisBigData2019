@@ -50,6 +50,12 @@ object Classification {
       .setLabelCol("label")
       .setOutputCol("selected_cat_vector")
 
+    val dtDiffSelector = new ChiSqSelector()
+      .setFdr(0.1)
+      .setFeaturesCol("dt_diff")
+      .setLabelCol("label")
+      .setOutputCol("date_diff")
+
     val vectorAssembler = new VectorAssembler()
       .setInputCols(Array("selected_cat_vector", "date_diff", "vectors_features"))
       .setOutputCol("features")
@@ -70,14 +76,14 @@ object Classification {
       .setFeaturesCol("nn_features")
 
     val paramGrid = new ParamGridBuilder()
-      .addGrid(randomForestClassifier.maxBins, Array(25, 28, 31))
+      .addGrid(randomForestClassifier.maxBins, Array(25, 35, 45))
       .addGrid(randomForestClassifier.maxDepth, Array(4, 6, 8))
       .addGrid(randomForestClassifier.numTrees, Array(12, 15, 18))
       .addGrid(randomForestClassifier.impurity, Array("entropy", "gini"))
       .build()
 
     val pipeline = new Pipeline()
-      .setStages(Array(catSelector, vectorAssembler, scaler, randomForestClassifier))
+      .setStages(Array(catSelector, dtDiffSelector, vectorAssembler, scaler, randomForestClassifier))
 
     val crossValidator = new CrossValidator()
       .setEstimator(pipeline)
@@ -120,7 +126,7 @@ object Classification {
       StructField("feature_1", StringType, nullable = true),
       StructField("feature_2", StringType, nullable = true),
       StructField("feature_3", StringType, nullable = true),
-      StructField("date_diff", LongType, nullable = true))
+      StructField("date_diff", DoubleType, nullable = true))
     )
 
     val dataDF = spark.read.format("csv")
@@ -142,11 +148,14 @@ object Classification {
       val cat_feat: Double = row.getAs[Double]("cat_feat")
       val jsonString: String = row.getAs[String]("features_json")
       val map: Map[Int, Double] = parse(jsonString).extract[Map[Int, Double]]
-      val dateDiff: Long = row.getAs[Long]("date_diff")
+      val dateDiff: Double = row.getAs[Double]("date_diff")
       (cuid, cat_feat, map, dateDiff)
     }).toDF("cuid", "cat_features", "map_features", "dt_diff")
       .groupBy("cuid")
-      .agg(collect_set("cat_features") as "cat_array", min("dt_diff") as "date_diff", combineMaps(col("map_features")))
+      .agg(
+        collect_set("cat_features") as "cat_array",
+        collect_set("dt_diff") as "dt_diff",
+        combineMaps(col("map_features")))
 
       /*
         * root
@@ -159,6 +168,7 @@ object Classification {
         * |    |-- value: double (valueContainsNull = true)
       */
       .withColumn("vectors_features", mapToSparse(col("combinemaps(map_features)")))
+      .withColumn("dt_diff", convertArrayToVector(col("dt_diff")))
       .withColumn("cat_vector", convertArrayToVector(col("cat_array")))
       .drop("combinemaps(map_features)")
       .drop("cat_array")
