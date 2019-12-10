@@ -1,12 +1,12 @@
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.classification.MultilayerPerceptronClassifier
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
-import org.apache.spark.ml.feature.{ChiSqSelector, OneHotEncoderEstimator, StandardScaler, VectorAssembler}
+import org.apache.spark.ml.feature.{ChiSqSelector, OneHotEncoderEstimator, StandardScaler, VectorAssembler, VectorIndexer}
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions.{array, col, explode, max, min, sum, udf}
+import org.apache.spark.sql.functions.{array, col, explode, first, min, udf}
 import org.apache.spark.sql.types.DoubleType
 
 object Classification {
@@ -151,7 +151,7 @@ object Classification {
       (cuid, cat_feat, map, dateDiff)
     }).toDF("cuid", "cat_features", "map_features", "dt_diff")
       .groupBy("cuid")
-      .agg(max("cat_features") as "cat_features", min("dt_diff") as "date_diff", combineMaps(col("map_features")))
+      .agg(first("cat_features") as "cat_features", min("dt_diff") as "date_diff", combineMaps(col("map_features")))
 
       /*
         * root
