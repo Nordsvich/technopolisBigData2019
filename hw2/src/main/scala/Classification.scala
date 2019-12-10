@@ -34,10 +34,7 @@ object Classification {
     val trainData = joinDF(trainPath, loadDF)
       .withColumn("label", col("target").cast(DoubleType))
       .drop("target")
-
-    testData.show(4, truncate = false)
-    trainData.show(4, truncate = false)
-
+    
     classification(testData, trainData)
 
     spark.stop()
