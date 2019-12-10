@@ -37,8 +37,8 @@ object Classification {
   def classification(testDF: DataFrame,
                      trainDF: DataFrame): Unit = {
 
-    println("Count test DF = {" + testDF.count() + "}")
-    println("Count train DF = {" + trainDF.count() + "}")
+  //  println("Count test DF = {" + testDF.count() + "}")
+  //  println("Count train DF = {" + trainDF.count() + "}")
 
     val oneHotEncoderEstimator = new OneHotEncoderEstimator()
       .setInputCols(Array("cat_features"))
@@ -110,7 +110,7 @@ object Classification {
 
     joinedDF.printSchema()
 
-    println("Size of joined DF is = " + joinedDF.count())
+   // println("Size of joined DF is = " + joinedDF.count())
 
     joinedDF
   }
