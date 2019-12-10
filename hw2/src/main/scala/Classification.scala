@@ -1,8 +1,8 @@
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.classification.RandomForestClassifier
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
-import org.apache.spark.ml.feature.{StandardScaler, VectorAssembler}
-import org.apache.spark.ml.linalg.Vectors
+import org.apache.spark.ml.feature.{LabeledPoint, StandardScaler, VectorAssembler}
+import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.{DataFrame, SparkSession}
@@ -25,6 +25,7 @@ object Classification {
 
   def main(args: Array[String]): Unit = {
 
+    import spark.implicits._
     val testPath = "./mlboot_test.tsv" // 6MB
     val trainPath = "./mlboot_train_answers.tsv" // 15 MB
 
@@ -33,7 +34,12 @@ object Classification {
     val testData = joinDF(testPath, loadDF)
     val trainData = joinDF(trainPath, loadDF)
       .withColumn("label", col("target").cast(DoubleType))
-      .drop("target")
+      .drop("target").rdd.map(
+      row => {
+        val target: Double = row.getAs[Double]("label")
+        val features: Vector = row.getAs[Vector]("features")
+        LabeledPoint(target, features.toDense)
+      }).toDF("label", "features")
     
     classification(testData, trainData)
 
@@ -42,10 +48,6 @@ object Classification {
 
   def classification(testDF: DataFrame,
                      trainDF: DataFrame): Unit = {
-
-    val vectorAssembler = new VectorAssembler()
-      .setInputCols(Array("cat_vector", "date_diff_vector", "vectors_features"))
-      .setOutputCol("features")
 
     val scaler = new StandardScaler()
       .setInputCol("features")
@@ -70,7 +72,7 @@ object Classification {
       .build()
 
     val pipeline = new Pipeline()
-      .setStages(Array(vectorAssembler, scaler, randomForestClassifier))
+      .setStages(Array( scaler, randomForestClassifier))
 
     val crossValidator = new CrossValidator()
       .setEstimator(pipeline)
@@ -152,9 +154,14 @@ object Classification {
       .drop("cat_array")
       .drop("dt_diff")
 
-    df.printSchema()
+    val vectorAssembler = new VectorAssembler()
+      .setInputCols(Array("cat_vector", "date_diff_vector", "vectors_features"))
+      .setOutputCol("features")
 
-    df
+
+    val assembledDF = vectorAssembler.transform(df)
+
+    assembledDF.drop("cat_vector", "date_diff_vector", "vectors_features")
   }
 
   def convertArrayToVector: UserDefinedFunction =
@@ -166,6 +173,6 @@ object Classification {
       if(map.nonEmpty) {
        size =  map.keysIterator.reduceLeft((x, y) => if (x > y) x else y)
       }
-      Vectors.sparse(size + 100, map.toSeq)
+      Vectors.sparse(size + 1, map.toSeq)
     })
 }
