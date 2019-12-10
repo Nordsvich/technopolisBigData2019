@@ -25,9 +25,7 @@ object Classification {
     val trainPath = "./mlboot_train_answers.tsv" // 15 MB
 
     val loadDF = loadData()
-
-    loadDF.write.csv("./loadDF.csv")
-
+    
     val testData = joinDF(testPath, loadDF)
     val trainData = joinDF(trainPath, loadDF)
 
@@ -94,7 +92,7 @@ object Classification {
 
     val accuracy = evaluator.evaluate(cvPredictionDF)
 
-    println("Accuracy (ROC) with cross validation = " + accuracy)    // accuracy (ROC) is*/
+    println("Accuracy (ROC) with cross validation = " + accuracy)
   }
 
   def joinDF(path: String,
