@@ -132,7 +132,7 @@ object Classification {
       .option("header", "false")
       .option("delimiter", "\t")
       .schema(schema)
-      .csv(spark.sparkContext.textFile(path, 650).toDS())
+      .csv(spark.sparkContext.textFile(path, 500).toDS())
 
     val combineMaps = new CombineMaps[Int, Double](IntegerType, DoubleType, _ + _)
 
