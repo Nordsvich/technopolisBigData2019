@@ -1,7 +1,7 @@
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.classification.RandomForestClassifier
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
-import org.apache.spark.ml.feature.{ChiSqSelector, PCA, StandardScaler, VectorAssembler}
+import org.apache.spark.ml.feature.{StandardScaler, VectorAssembler}
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.sql.expressions.UserDefinedFunction
@@ -43,19 +43,8 @@ object Classification {
   def classification(testDF: DataFrame,
                      trainDF: DataFrame): Unit = {
 
-    val catSelector = new ChiSqSelector()
-      .setFdr(0.1)
-      .setFeaturesCol("cat_vector")
-      .setLabelCol("label")
-      .setOutputCol("selected_cat_vector")
-
-    val pcaSelector = new PCA()
-      .setInputCol("date_diff_vector")
-      .setOutputCol("date_diff_features")
-      .setK(1)
-
     val vectorAssembler = new VectorAssembler()
-      .setInputCols(Array("selected_cat_vector", "date_diff_features", "vectors_features"))
+      .setInputCols(Array("cat_vector", "date_diff_vector", "vectors_features"))
       .setOutputCol("features")
 
     val scaler = new StandardScaler()
@@ -81,7 +70,7 @@ object Classification {
       .build()
 
     val pipeline = new Pipeline()
-      .setStages(Array(catSelector, pcaSelector, vectorAssembler, scaler, randomForestClassifier))
+      .setStages(Array(vectorAssembler, scaler, randomForestClassifier))
 
     val crossValidator = new CrossValidator()
       .setEstimator(pipeline)
