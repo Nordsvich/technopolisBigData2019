@@ -66,16 +66,17 @@ object Classification {
       .setLabelCol("target")
       .setMetricName("areaUnderROC")
 
-    val layers = Array[Int](4, 5, 4, 3)
+    val layersVal1 = Array[Int](4, 5, 4, 3)
+    val layersVal2 = Array[Int](3, 4, 3, 3)
 
     // create the trainer and set its parameters
     val neuralNetwork = new MultilayerPerceptronClassifier()
-      .setLayers(layers)
       .setSeed(1234L)
 
     val paramGrid = new ParamGridBuilder()
       .addGrid(neuralNetwork.maxIter, Array(5, 10, 15))
       .addGrid(neuralNetwork.blockSize, Array(32, 48, 60))
+      .addGrid(neuralNetwork.layers, Array(layersVal1, layersVal2))
       .build()
 
     val pipeline = new Pipeline()
