@@ -9,6 +9,8 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions.{array, col, collect_set, explode, min, udf}
 import org.apache.spark.sql.types.DoubleType
 
+import scala.collection.mutable
+
 object Classification {
 
   val spark: SparkSession = SparkSession.builder().appName("Classifier")
@@ -167,7 +169,7 @@ object Classification {
         * |    |-- value: double (valueContainsNull = true)
       */
       .withColumn("vectors_features", mapToSparse(col("combinemaps(map_features)")))
-      .withColumn("cat_vector", arrayToDense(col("cat_array")))
+      .withColumn("cat_vector", convertArrayToVector(col("cat_array")))
       .drop("combinemaps(map_features)")
       .drop("cat_array")
 
@@ -176,11 +178,8 @@ object Classification {
     df
   }
 
-  def arrayToDense: UserDefinedFunction = udf((array: Array[Double]) => {
-    Vectors.dense(array)
-  })
-
-  def mapToSparse: UserDefinedFunction = udf((map: Map[Int, Double]) => {
-    Vectors.sparse(map.max._1 + 1, map.toSeq)
-  })
+  def convertArrayToVector: UserDefinedFunction =
+    udf((features: mutable.WrappedArray[Double]) => Vectors.dense(features.toArray))
+  def mapToSparse: UserDefinedFunction =
+    udf((map: Map[Int, Double]) => Vectors.sparse(map.max._1 + 1, map.toSeq))
 }
