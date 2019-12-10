@@ -170,9 +170,6 @@ object Classification {
 
     df.printSchema()
 
-    println("df size = " + df.count())
-    df.show(40, truncate = false)
-
     df
   }
 
