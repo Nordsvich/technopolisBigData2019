@@ -26,10 +26,11 @@ object Classification {
     val trainPath = "./mlboot_train_answers.tsv" // 15 MB
 
     val loadDF = loadData()
-    
+
     val testData = joinDF(testPath, loadDF)
     val trainData = joinDF(trainPath, loadDF)
-      .withColumn("target", col("target").cast(DoubleType))
+      .withColumn("label", col("target").cast(DoubleType))
+      .drop("target")
 
     classification(testData, trainData)
 
@@ -39,18 +40,20 @@ object Classification {
   def classification(testDF: DataFrame,
                      trainDF: DataFrame): Unit = {
 
-    val oneHotEncoderEstimator = new OneHotEncoderEstimator()
-      .setInputCols(Array("cat_features"))
-      .setOutputCols(Array("cat_vector"))
-    
+    val catSelector = new ChiSqSelector()
+      .setFdr(0.1)
+      .setFeaturesCol("cat_vector")
+      .setLabelCol("label")
+      .setOutputCol("selected_cat_vector")
+
     val vectorAssembler = new VectorAssembler()
-      .setInputCols(Array("cat_vector", "date_diff", "vectors_features"))
+      .setInputCols(Array("selected_cat_vector", "date_diff", "vectors_features"))
       .setOutputCol("features")
 
-    val selector = new ChiSqSelector()
+    val featuresSelector = new ChiSqSelector()
       .setFdr(0.1)
       .setFeaturesCol("features")
-      .setLabelCol("target")
+      .setLabelCol("label")
       .setOutputCol("selectedFeatures")
 
     val scaler = new StandardScaler()
@@ -60,7 +63,7 @@ object Classification {
       .setWithMean(true)
 
     val evaluator = new BinaryClassificationEvaluator()
-      .setLabelCol("target")
+      .setLabelCol("label")
       .setMetricName("areaUnderROC")
 
     val layersVal1 = Array[Int](4, 5, 4, 3)
@@ -69,7 +72,7 @@ object Classification {
     // create the trainer and set its parameters
     val neuralNetwork = new MultilayerPerceptronClassifier()
       .setSeed(1234L)
-      .setLabelCol("target")
+      .setLabelCol("label")
       .setFeaturesCol("nn_features")
 
     val paramGrid = new ParamGridBuilder()
@@ -79,7 +82,7 @@ object Classification {
       .build()
 
     val pipeline = new Pipeline()
-      .setStages(Array(oneHotEncoderEstimator, vectorAssembler, selector, scaler, neuralNetwork))
+      .setStages(Array(catSelector, vectorAssembler, featuresSelector, scaler, neuralNetwork))
 
     val crossValidator = new CrossValidator()
       .setEstimator(pipeline)
@@ -121,7 +124,7 @@ object Classification {
 
     val schema = StructType(Array(
       StructField("cuid", StringType, nullable = true),
-      StructField("cat_feat", IntegerType, nullable = true),
+      StructField("cat_feat", DoubleType, nullable = true),
       StructField("feature_1", StringType, nullable = true),
       StructField("feature_2", StringType, nullable = true),
       StructField("feature_3", StringType, nullable = true),
@@ -144,32 +147,38 @@ object Classification {
       import org.json4s.jackson.JsonMethods._
       implicit val formats: DefaultFormats.type = org.json4s.DefaultFormats
       val cuid: String = row.getAs[String]("cuid")
-      val cat_feat: Int = row.getAs[Int]("cat_feat")
+      val cat_feat: Double = row.getAs[Double]("cat_feat")
       val jsonString: String = row.getAs[String]("features_json")
       val map: Map[Int, Double] = parse(jsonString).extract[Map[Int, Double]]
       val dateDiff: Long = row.getAs[Long]("date_diff")
       (cuid, cat_feat, map, dateDiff)
     }).toDF("cuid", "cat_features", "map_features", "dt_diff")
       .groupBy("cuid")
-      .agg(collect_set("cat_features") as "cat_features", min("dt_diff") as "date_diff", combineMaps(col("map_features")))
+      .agg(collect_set("cat_features") as "cat_array", min("dt_diff") as "date_diff", combineMaps(col("map_features")))
 
       /*
         * root
         * |-- cuid: string (nullable = true)
         * |-- cat_features: array (nullable = true)
-        * |    |-- element: integer (containsNull = true)
+        * |    |-- element: dobule (containsNull = true)
         * |-- date_diff: long (nullable = true)
         * |-- combinemaps(map_features): map (nullable = true)
         * |    |-- key: integer
         * |    |-- value: double (valueContainsNull = true)
       */
       .withColumn("vectors_features", mapToSparse(col("combinemaps(map_features)")))
+      .withColumn("cat_vector", arrayToDense(col("cat_array")))
       .drop("combinemaps(map_features)")
+      .drop("cat_array")
 
     df.printSchema()
 
     df
   }
+
+  def arrayToDense: UserDefinedFunction = udf((array: Array[Double]) => {
+    Vectors.dense(array)
+  })
 
   def mapToSparse: UserDefinedFunction = udf((map: Map[Int, Double]) => {
     Vectors.sparse(map.max._1 + 1, map.toSeq)
