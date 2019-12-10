@@ -6,7 +6,8 @@ import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions.{array, col, collect_set, explode, sum, udf}
+import org.apache.spark.sql.functions.{array, col, explode, min, sum, udf}
+import org.apache.spark.sql.types.DoubleType
 
 object Classification {
 
@@ -28,6 +29,7 @@ object Classification {
     
     val testData = joinDF(testPath, loadDF)
     val trainData = joinDF(trainPath, loadDF)
+      .withColumn("target", col("target").cast(DoubleType))
 
     classification(testData, trainData)
 
@@ -36,9 +38,6 @@ object Classification {
 
   def classification(testDF: DataFrame,
                      trainDF: DataFrame): Unit = {
-
-  //  println("Count test DF = {" + testDF.count() + "}")
-  //  println("Count train DF = {" + trainDF.count() + "}")
 
     val oneHotEncoderEstimator = new OneHotEncoderEstimator()
       .setInputCols(Array("cat_features"))
@@ -110,8 +109,6 @@ object Classification {
 
     joinedDF.printSchema()
 
-   // println("Size of joined DF is = " + joinedDF.count())
-
     joinedDF
   }
 
@@ -154,7 +151,7 @@ object Classification {
       (cuid, cat_feat, map, dateDiff)
     }).toDF("cuid", "cat_features", "map_features", "dt_diff")
       .groupBy("cuid")
-      .agg(collect_set("cat_features") as "cat_features", sum("dt_diff") as "date_diff", combineMaps(col("map_features")))
+      .agg(min("cat_features") as "cat_features", sum("dt_diff") as "date_diff", combineMaps(col("map_features")))
 
       /*
         * root
