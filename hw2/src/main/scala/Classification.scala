@@ -1,3 +1,4 @@
+import Classification.spark
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.classification.MultilayerPerceptronClassifier
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
@@ -8,8 +9,9 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions.{array, col, collect_set, explode, min, udf}
 import org.apache.spark.sql.types.DoubleType
-
-import scala.collection.mutable
+import scala.collection._
+import org.apache.spark.sql.types._
+import spark.implicits._
 
 object Classification {
 
@@ -52,14 +54,8 @@ object Classification {
       .setInputCols(Array("selected_cat_vector", "date_diff", "vectors_features"))
       .setOutputCol("features")
 
-    val featuresSelector = new ChiSqSelector()
-      .setFdr(0.1)
-      .setFeaturesCol("features")
-      .setLabelCol("label")
-      .setOutputCol("selectedFeatures")
-
     val scaler = new StandardScaler()
-      .setInputCol("selectedFeatures")
+      .setInputCol("features")
       .setOutputCol("nn_features")
       .setWithStd(true)
       .setWithMean(true)
@@ -84,7 +80,7 @@ object Classification {
       .build()
 
     val pipeline = new Pipeline()
-      .setStages(Array(catSelector, vectorAssembler, featuresSelector, scaler, neuralNetwork))
+      .setStages(Array(catSelector, vectorAssembler, scaler, neuralNetwork))
 
     val crossValidator = new CrossValidator()
       .setEstimator(pipeline)
@@ -120,9 +116,6 @@ object Classification {
   def loadData(): DataFrame = {
 
     val path = "./mlboot_data.tsv" // 10GB
-
-    import spark.implicits._
-    import org.apache.spark.sql.types._
 
     val schema = StructType(Array(
       StructField("cuid", StringType, nullable = true),
