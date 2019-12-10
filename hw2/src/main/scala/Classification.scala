@@ -2,13 +2,14 @@ import Classification.spark
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.classification.RandomForestClassifier
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
-import org.apache.spark.ml.feature.{ChiSqSelector, StandardScaler, VectorAssembler}
+import org.apache.spark.ml.feature.{ChiSqSelector, PCA, StandardScaler, VectorAssembler}
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions.{array, col, collect_set, explode, min, udf}
+import org.apache.spark.sql.functions.{array, col, collect_set, explode, udf}
 import org.apache.spark.sql.types.DoubleType
+
 import scala.collection._
 import org.apache.spark.sql.types._
 import spark.implicits._
@@ -50,11 +51,10 @@ object Classification {
       .setLabelCol("label")
       .setOutputCol("selected_cat_vector")
 
-    val dtDiffSelector = new ChiSqSelector()
-      .setFdr(0.1)
-      .setFeaturesCol("dat_diff")
-      .setLabelCol("label")
-      .setOutputCol("date_diff")
+   val pcaSelector = new PCA()
+     .setInputCol("dat_diff")
+     .setOutputCol("date_diff")
+     .setK(1)
 
     val vectorAssembler = new VectorAssembler()
       .setInputCols(Array("selected_cat_vector", "date_diff", "vectors_features"))
@@ -83,7 +83,7 @@ object Classification {
       .build()
 
     val pipeline = new Pipeline()
-      .setStages(Array(catSelector, dtDiffSelector, vectorAssembler, scaler, randomForestClassifier))
+      .setStages(Array(catSelector, pcaSelector, vectorAssembler, scaler, randomForestClassifier))
 
     val crossValidator = new CrossValidator()
       .setEstimator(pipeline)
