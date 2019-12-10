@@ -52,7 +52,7 @@ object Classification {
 
     val dtDiffSelector = new ChiSqSelector()
       .setFdr(0.1)
-      .setFeaturesCol("dt_diff")
+      .setFeaturesCol("dat_diff")
       .setLabelCol("label")
       .setOutputCol("date_diff")
 
@@ -69,7 +69,7 @@ object Classification {
     val evaluator = new BinaryClassificationEvaluator()
       .setLabelCol("label")
       .setMetricName("areaUnderROC")
-    
+
     // create the trainer and set its parameters
     val randomForestClassifier = new RandomForestClassifier()
       .setLabelCol("label")
@@ -168,10 +168,11 @@ object Classification {
         * |    |-- value: double (valueContainsNull = true)
       */
       .withColumn("vectors_features", mapToSparse(col("combinemaps(map_features)")))
-      .withColumn("dt_diff", convertArrayToVector(col("dt_diff")))
+      .withColumn("dat_diff", convertArrayToVector(col("dt_diff")))
       .withColumn("cat_vector", convertArrayToVector(col("cat_array")))
       .drop("combinemaps(map_features)")
       .drop("cat_array")
+      .drop("dt_diff")
 
     df.printSchema()
 
@@ -180,6 +181,7 @@ object Classification {
 
   def convertArrayToVector: UserDefinedFunction =
     udf((features: mutable.WrappedArray[Double]) => Vectors.dense(features.toArray))
+
   def mapToSparse: UserDefinedFunction =
     udf((map: Map[Int, Double]) => Vectors.sparse(map.max._1 + 1, map.toSeq))
 }
