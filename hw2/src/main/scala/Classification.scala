@@ -1,8 +1,8 @@
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.classification.RandomForestClassifier
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
-import org.apache.spark.ml.feature.{LabeledPoint, PCA, StandardScaler, VectorAssembler}
-import org.apache.spark.ml.linalg.{Vector, Vectors}
+import org.apache.spark.ml.feature.{Binarizer, ChiSqSelector, MinMaxScaler, PCA, VectorAssembler}
+import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.{DataFrame, SparkSession}
@@ -25,7 +25,9 @@ object Classification {
 
   def main(args: Array[String]): Unit = {
 
-    import spark.implicits._
+
+
+
     val testPath = "./mlboot_test.tsv" // 6MB
     val trainPath = "./mlboot_train_answers.tsv" // 15 MB
 
@@ -34,63 +36,12 @@ object Classification {
     val testData = joinDF(testPath, loadDF)
     val trainData = joinDF(trainPath, loadDF)
       .withColumn("label", col("target").cast(DoubleType))
-      .drop("target").rdd.map(
-      row => {
-        val target: Double = row.getAs[Double]("label")
-        val features: Vector = row.getAs[Vector]("features")
-        LabeledPoint(target, features.toDense)
-      }).toDF("label", "features")
-    
+      .drop("target")
+
+
     classification(testData, trainData)
 
     spark.stop()
-  }
-
-  def classification(testDF: DataFrame,
-                     trainDF: DataFrame): Unit = {
-
-    val pca = new PCA()
-      .setInputCol("features")
-      .setOutputCol("d_features")
-
-    val scaler = new StandardScaler()
-      .setInputCol("d_features")
-      .setOutputCol("rf_features")
-      .setWithStd(true)
-      .setWithMean(true)
-
-    val evaluator = new BinaryClassificationEvaluator()
-      .setLabelCol("label")
-      .setMetricName("areaUnderROC")
-
-    // create the trainer and set its parameters
-    val randomForestClassifier = new RandomForestClassifier()
-      .setLabelCol("label")
-      .setFeaturesCol("rf_features")
-
-    val paramGrid = new ParamGridBuilder()
-      .addGrid(randomForestClassifier.maxBins, Array(15, 25, 35, 45))
-      .addGrid(randomForestClassifier.maxDepth, Array(4, 6, 8, 10, 12, 14, 16))
-      .addGrid(randomForestClassifier.numTrees, Array(12, 15, 18, 20))
-      .addGrid(randomForestClassifier.impurity, Array("entropy", "gini"))
-      .build()
-
-    val pipeline = new Pipeline()
-      .setStages(Array(pca, scaler, randomForestClassifier))
-
-    val crossValidator = new CrossValidator()
-      .setEstimator(pipeline)
-      .setEvaluator(evaluator)
-      .setEstimatorParamMaps(paramGrid)
-      .setNumFolds(5)
-
-    val cvModel = crossValidator.fit(trainDF)
-
-    val cvPredictionDF = cvModel.transform(testDF)
-
-    val accuracy = evaluator.evaluate(cvPredictionDF)
-
-    println("Accuracy (ROC) with cross validation = " + accuracy)
   }
 
   def joinDF(path: String,
@@ -151,32 +102,76 @@ object Classification {
         collect_set("cat_features") as "cat_array",
         collect_set("dats_diff") as "dt_diff",
         combineMaps(col("map_features")))
-      .withColumn("vectors_features", mapToSparse(col("combinemaps(map_features)")))
+      .withColumn("sparse_vector", mapToSparse(col("combinemaps(map_features)")))
       .withColumn("date_diff_vector", convertArrayToVector(col("dt_diff")))
       .withColumn("cat_vector", convertArrayToVector(col("cat_array")))
       .drop("combinemaps(map_features)")
       .drop("cat_array")
       .drop("dt_diff")
 
+    df
+  }
+
+  def classification(testDF: DataFrame,
+                     trainDF: DataFrame): Unit = {
+
+    val evaluator = new BinaryClassificationEvaluator()
+      .setLabelCol("label")
+      .setMetricName("areaUnderROC")
+
+    val binarizer = new Binarizer()
+      .setInputCol("sparse_vector")
+      .setOutputCol("binarized_vector_features")
+      .setThreshold(4)
+
+    val chiSqSelector = new ChiSqSelector()
+      .setLabelCol("label")
+      .setFeaturesCol("cat_vector")
+      .setOutputCol("cat_features")
+      .setFdr(0.1)
+
+    val pca = new PCA()
+      .setInputCol("date_diff_vector")
+      .setOutputCol("date_diff_features")
+      .setK(4)
+
     val vectorAssembler = new VectorAssembler()
-      .setInputCols(Array("cat_vector", "date_diff_vector", "vectors_features"))
-      .setOutputCol("features")
+      .setInputCols(Array("date_diff_features", "cat_features", "binarized_vector_features"))
+      .setOutputCol("rf_features")
 
+    // create the trainer and set its parameters
+    val randomForestClassifier = new RandomForestClassifier()
+      .setLabelCol("label")
+      .setFeaturesCol("rf_features")
 
-    val assembledDF = vectorAssembler.transform(df)
+    val paramGrid = new ParamGridBuilder()
+      .addGrid(randomForestClassifier.maxBins, Array(15, 25, 35, 45))
+      .addGrid(randomForestClassifier.maxDepth, Array(4, 6, 8, 10, 12, 14, 16))
+      .addGrid(randomForestClassifier.numTrees, Array(12, 15, 18, 20))
+      .addGrid(randomForestClassifier.impurity, Array("entropy", "gini"))
+      .build()
 
-    assembledDF.drop("cat_vector", "date_diff_vector", "vectors_features")
+    val pipeline = new Pipeline()
+      .setStages(Array(binarizer, chiSqSelector, pca, vectorAssembler, randomForestClassifier))
+
+    val crossValidator = new CrossValidator()
+      .setEstimator(pipeline)
+      .setEvaluator(evaluator)
+      .setEstimatorParamMaps(paramGrid)
+      .setNumFolds(5)
+
+    val cvModel = crossValidator.fit(trainDF)
+
+    val cvPredictionDF = cvModel.transform(testDF)
+
+    val accuracy = evaluator.evaluate(cvPredictionDF)
+
+    println("Accuracy (ROC) with cross validation = " + accuracy)
   }
 
   def convertArrayToVector: UserDefinedFunction =
     udf((features: mutable.WrappedArray[Double]) => Vectors.dense(features.toArray))
 
   def mapToSparse: UserDefinedFunction =
-    udf((map: Map[Int, Double]) => {
-      var size = 0
-      if(map.nonEmpty) {
-       size =  map.keysIterator.reduceLeft((x, y) => if (x > y) x else y)
-      }
-      Vectors.sparse(size + 1, map.toSeq)
-    })
+    udf((map: Map[Int, Double]) => Vectors.sparse(map.keys.max + 1, map.toSeq))
 }
