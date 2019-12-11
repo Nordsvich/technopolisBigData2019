@@ -1,7 +1,7 @@
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.classification.RandomForestClassifier
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
-import org.apache.spark.ml.feature.{Binarizer, ChiSqSelector, MinMaxScaler, PCA, VectorAssembler}
+import org.apache.spark.ml.feature.{Binarizer, ChiSqSelector, VectorAssembler, VectorSlicer}
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.sql.expressions.UserDefinedFunction
@@ -24,8 +24,6 @@ object Classification {
     .config("spark.master", "local").getOrCreate()
 
   def main(args: Array[String]): Unit = {
-
-
 
 
     val testPath = "./mlboot_test.tsv" // 6MB
@@ -130,10 +128,10 @@ object Classification {
       .setOutputCol("cat_features")
       .setFdr(0.1)
 
-    val pca = new PCA()
+    val slicer = new VectorSlicer()
       .setInputCol("date_diff_vector")
       .setOutputCol("date_diff_features")
-      .setK(4)
+      .setIndices(Array(1,2,3,4,5))
 
     val vectorAssembler = new VectorAssembler()
       .setInputCols(Array("date_diff_features", "cat_features", "binarized_vector_features"))
@@ -152,7 +150,7 @@ object Classification {
       .build()
 
     val pipeline = new Pipeline()
-      .setStages(Array(binarizer, chiSqSelector, pca, vectorAssembler, randomForestClassifier))
+      .setStages(Array(binarizer, chiSqSelector, slicer, vectorAssembler, randomForestClassifier))
 
     val crossValidator = new CrossValidator()
       .setEstimator(pipeline)
