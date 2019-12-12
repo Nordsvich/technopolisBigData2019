@@ -1,14 +1,15 @@
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.classification.RandomForestClassifier
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
-import org.apache.spark.ml.feature.{Binarizer, ChiSqSelector, VectorAssembler, VectorSlicer}
+import org.apache.spark.ml.feature.{Binarizer, ChiSqSelector, CountVectorizer, Normalizer, StandardScaler, VectorAssembler, VectorSlicer}
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions.{array, col, collect_set, explode, udf}
+import org.apache.spark.sql.functions.{array, avg, col, collect_list, explode, udf}
 import org.apache.spark.sql.types.DoubleType
 
+import scala.util.Sorting.quickSort
 import scala.collection._
 import org.apache.spark.sql.types._
 
@@ -26,6 +27,7 @@ object Classification {
   def main(args: Array[String]): Unit = {
 
 
+
     val testPath = "./mlboot_test.tsv" // 6MB
     val trainPath = "./mlboot_train_answers.tsv" // 15 MB
 
@@ -36,6 +38,9 @@ object Classification {
       .withColumn("label", col("target").cast(DoubleType))
       .drop("target")
 
+
+    testData.show(6, truncate = false)
+    // trainData.show(6, truncate = false)
 
     classification(testData, trainData)
 
@@ -97,15 +102,13 @@ object Classification {
     }).toDF("cuid", "cat_features", "map_features", "dats_diff")
       .groupBy("cuid")
       .agg(
-        collect_set("cat_features") as "cat_array",
-        collect_set("dats_diff") as "dt_diff",
+        collect_list("cat_features") as "cat_array",
+        avg("dats_diff") as "dt_diff",
         combineMaps(col("map_features")))
       .withColumn("sparse_vector", mapToSparse(col("combinemaps(map_features)")))
-      .withColumn("date_diff_vector", convertArrayToVector(col("dt_diff")))
       .withColumn("cat_vector", convertArrayToVector(col("cat_array")))
       .drop("combinemaps(map_features)")
       .drop("cat_array")
-      .drop("dt_diff")
 
     df
   }
@@ -122,25 +125,25 @@ object Classification {
       .setOutputCol("binarized_vector_features")
       .setThreshold(4)
 
+    val vectorAssembler = new VectorAssembler()
+      .setInputCols(Array("dt_diff", "cat_vector", "binarized_vector_features"))
+      .setOutputCol("rf_features")
+
     val chiSqSelector = new ChiSqSelector()
       .setLabelCol("label")
-      .setFeaturesCol("cat_vector")
-      .setOutputCol("cat_features")
-      .setFdr(0.1)
+      .setFeaturesCol("rf_features")
+      .setOutputCol("features")
 
-    val slicer = new VectorSlicer()
-      .setInputCol("date_diff_vector")
-      .setOutputCol("date_diff_features")
-      .setIndices(Array(1,2,3,4,5))
-
-    val vectorAssembler = new VectorAssembler()
-      .setInputCols(Array("date_diff_features", "cat_features", "binarized_vector_features"))
-      .setOutputCol("rf_features")
+    val scaler = new StandardScaler()
+      .setInputCol("features")
+      .setOutputCol("scaled_features")
+      .setWithMean(true)
+      .setWithStd(true)
 
     // create the trainer and set its parameters
     val randomForestClassifier = new RandomForestClassifier()
       .setLabelCol("label")
-      .setFeaturesCol("rf_features")
+      .setFeaturesCol("scaled_features")
 
     val paramGrid = new ParamGridBuilder()
       .addGrid(randomForestClassifier.maxBins, Array(15, 25, 35, 45))
@@ -150,7 +153,7 @@ object Classification {
       .build()
 
     val pipeline = new Pipeline()
-      .setStages(Array(binarizer, chiSqSelector, slicer, vectorAssembler, randomForestClassifier))
+      .setStages(Array(binarizer, vectorAssembler, chiSqSelector, scaler, randomForestClassifier))
 
     val crossValidator = new CrossValidator()
       .setEstimator(pipeline)
