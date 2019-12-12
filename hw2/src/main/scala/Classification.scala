@@ -1,7 +1,7 @@
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.classification.RandomForestClassifier
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
-import org.apache.spark.ml.feature.{Binarizer, ChiSqSelector, CountVectorizer, Normalizer, StandardScaler, VectorAssembler, VectorSlicer}
+import org.apache.spark.ml.feature.{Binarizer, ChiSqSelector, StandardScaler, VectorAssembler}
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.sql.expressions.UserDefinedFunction
@@ -9,7 +9,6 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions.{array, avg, col, collect_list, explode, udf}
 import org.apache.spark.sql.types.DoubleType
 
-import scala.util.Sorting.quickSort
 import scala.collection._
 import org.apache.spark.sql.types._
 
