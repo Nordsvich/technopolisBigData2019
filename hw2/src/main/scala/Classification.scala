@@ -143,7 +143,7 @@ object Classification {
       .build()
 
     val pipeline = new Pipeline()
-      .setStages(Array(binarizer, vectorAssembler, chiSqSelector, scaler, randomForestClassifier))
+      .setStages(Array(vectorAssembler, chiSqSelector, scaler, randomForestClassifier))
 
     val crossValidator = new CrossValidator()
       .setEstimator(pipeline)
