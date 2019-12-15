@@ -37,10 +37,6 @@ object Classification {
       .withColumn("label", col("target").cast(DoubleType))
       .drop("target")
 
-
-    testData.show(6, truncate = false)
-    // trainData.show(6, truncate = false)
-
     classification(testData, trainData)
 
     spark.stop()
@@ -118,14 +114,9 @@ object Classification {
     val evaluator = new BinaryClassificationEvaluator()
       .setLabelCol("label")
       .setMetricName("areaUnderROC")
-
-    val binarizer = new Binarizer()
-      .setInputCol("sparse_vector")
-      .setOutputCol("binarized_vector_features")
-      .setThreshold(4)
-
+    
     val vectorAssembler = new VectorAssembler()
-      .setInputCols(Array("dt_diff", "cat_vector", "binarized_vector_features"))
+      .setInputCols(Array("dt_diff", "cat_vector", "sparse_vector"))
       .setOutputCol("rf_features")
 
     val chiSqSelector = new ChiSqSelector()
