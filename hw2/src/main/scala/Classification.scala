@@ -1,7 +1,8 @@
+import org.apache.commons.math3.stat.correlation.SpearmansCorrelation
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.classification.RandomForestClassifier
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
-import org.apache.spark.ml.feature.{Binarizer, ChiSqSelector, StandardScaler, VectorAssembler}
+import org.apache.spark.ml.feature.{ChiSqSelector, StandardScaler, VectorAssembler}
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.sql.expressions.UserDefinedFunction
@@ -24,8 +25,6 @@ object Classification {
     .config("spark.master", "local").getOrCreate()
 
   def main(args: Array[String]): Unit = {
-
-
 
     val testPath = "./mlboot_test.tsv" // 6MB
     val trainPath = "./mlboot_train_answers.tsv" // 15 MB
@@ -123,6 +122,7 @@ object Classification {
       .setLabelCol("label")
       .setFeaturesCol("rf_features")
       .setOutputCol("features")
+      .setNumTopFeatures(15)
 
     val scaler = new StandardScaler()
       .setInputCol("features")
