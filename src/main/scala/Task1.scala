@@ -37,7 +37,7 @@ object Task1 {
       .format("csv")
       .option("header", "true")
       .option("inferSchema", "true")
-      .load("src/main/resources/hw1/ml_dataset.csv")
+      .load("hw1/ml_dataset.csv")
 
     val Array(trainData, testData) = data.randomSplit(Array(0.7, 0.3))
 
