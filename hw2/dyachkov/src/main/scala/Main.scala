@@ -114,10 +114,9 @@ object Main {
       .withColumn("Survived", predictions.col("prediction").cast(IntegerType))
       .drop("prediction")
       .write
-      .format("com.databricks.spark.csv")
       .option("header", "true")
       .mode(SaveMode.Overwrite)
-      .save(predictionPath)
+      .csv(predictionPath)
   }
 
   def createSparkSession(): SparkSession = {
