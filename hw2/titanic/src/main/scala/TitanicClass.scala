@@ -66,7 +66,7 @@ object TitanicClass {
 
     val rf = new RandomForestClassifier()
       .setLabelCol("Survived")
-      .setFeaturesCol("features")
+      .setFeaturesCol(scaler.getOutputCol)
 
     val paramGridRF = new ParamGridBuilder()
       .addGrid(rf.maxDepth, Array(5, 10, 15))
@@ -86,7 +86,7 @@ object TitanicClass {
 
     val lr = new LogisticRegression()
       .setLabelCol("Survived")
-      .setFeaturesCol(selector.getOutputCol)
+      .setFeaturesCol(scaler.getOutputCol)
 
     val paramGridLR = new ParamGridBuilder()
       .addGrid(lr.maxIter, Array(10, 20))

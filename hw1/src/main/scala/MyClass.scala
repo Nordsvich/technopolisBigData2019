@@ -1,6 +1,6 @@
 import org.apache.spark.ml.Pipeline
-import org.apache.spark.ml.classification.{LogisticRegression, RandomForestClassifier}
-import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
+import org.apache.spark.ml.classification.{DecisionTreeClassifier, LogisticRegression, RandomForestClassifier}
+import org.apache.spark.ml.evaluation.{BinaryClassificationEvaluator, RegressionEvaluator}
 import org.apache.spark.ml.feature.{ChiSqSelector, StandardScaler, VectorAssembler}
 import org.apache.spark.ml.tuning.{ParamGridBuilder, TrainValidationSplit}
 import org.apache.spark.sql.SparkSession
@@ -15,6 +15,7 @@ object MyClass {
 
     val dataMLDataset = spark.read.format("csv")
       .option("header", "true")
+      .option("inferSchema", "true")
       .load("ml_dataset.csv")
 
     val Array(training, test) = dataMLDataset.randomSplit(Array(0.7, 0.3), seed = 5)
@@ -84,7 +85,30 @@ object MyClass {
     val evaluator = new BinaryClassificationEvaluator()
       .setLabelCol("label")
 
+    val dt = new DecisionTreeClassifier()
+      .setLabelCol("label")
+      .setFeaturesCol(selector.getOutputCol)
+
+    val paramGridDT = new ParamGridBuilder()
+      .addGrid(dt.maxDepth, Array(5, 10, 15))
+      .addGrid(dt.maxBins, Array(100))
+      .build()
+
+    val pipelineDT = new Pipeline().setStages(Array(assembler, selector, scaler, dt))
+
+    val cvDT = new TrainValidationSplit()
+      .setEstimator(pipelineDT)
+      .setEvaluator(new BinaryClassificationEvaluator)
+      .setEstimatorParamMaps(paramGridDT)
+      .setTrainRatio(0.8)
+      .setParallelism(4)
+
+    val dtModel = cvDT.fit(training)
+
+    val dtPredict = dtModel.transform(test)
+
     println("Random Forest " + evaluator.evaluate(rfPredict))
     println("Logistic Regression " + evaluator.evaluate(lrPredict))
+    println("DecisionTreeClassifier " + evaluator.evaluate(dtPredict))
   }
 }
