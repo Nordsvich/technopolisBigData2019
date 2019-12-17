@@ -24,8 +24,6 @@ object Main {
       .option("header", "true")
       .option("inferSchema", "true")
       .csv(path)
-      .drop("Cabin") // too many nulls
-      .drop("Ticket") // useless
       .withColumn("label", col("Survived"))
 
     // preprocess
@@ -86,7 +84,7 @@ object Main {
       .select("PassengerId", "features")
       .cache()
 
-    // predict
+    // predict and save
     model.transform(processed)
       .select("PassengerId", "prediction")
       .withColumn("Survived", col("prediction").cast(IntegerType))
