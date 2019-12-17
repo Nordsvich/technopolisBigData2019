@@ -4,8 +4,8 @@ import org.apache.spark.sql.expressions.Window
 
 object UserAgentsHW0 {
 
-  val PATH_TO_REACTIONS_CSV: String = "./hw0/ua_reactions.csv"
-  val PATH_TO_EXCLUDED_TXT: String = "./hw0/excluded.txt"
+  val PATH_TO_REACTIONS_CSV: String = "./ua_reactions.csv"
+  val PATH_TO_EXCLUDED_TXT: String = "./excluded.txt"
 
   def main(args: Array[String]): Unit = {
     val sparkSession = createSparkSession()
@@ -67,7 +67,7 @@ object UserAgentsHW0 {
       .appName("User Agents")
       .master("local")
       .getOrCreate()
-    spark.sparkContext.setLogLevel("ERROR")
+    spark.sparkContext.setLogLevel("OFF")
     spark
   }
 }
