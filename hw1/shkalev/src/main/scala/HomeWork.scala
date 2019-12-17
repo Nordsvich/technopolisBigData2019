@@ -1,7 +1,10 @@
-import org.apache.spark.ml.{Pipeline}
+
+import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.classification.{LogisticRegression, RandomForestClassifier}
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 import org.apache.spark.ml.feature.{ChiSqSelector, StandardScaler, VectorAssembler}
+import org.apache.spark.ml.tuning.{ParamGridBuilder, TrainValidationSplit}
+
 import org.apache.spark.sql.SparkSession
 
 object HomeWork {
@@ -45,12 +48,26 @@ object HomeWork {
     val lrPipeline = new Pipeline()
       .setStages(Array(assembler, selector, scaler, lr))
 
-    val lrModel = lrPipeline.fit(training)
+    val rf = new RandomForestClassifier()
+      .setLabelCol("label")
+      .setFeaturesCol("features")
+      .setNumTrees(10)
 
-    val lrPredict = lrModel.transform(test)
 
-    lrPredict.select("label", "prediction", "features").show(10)
+    val rfPipeline = new Pipeline()
+      .setStages(Array(assembler, selector, scaler, rf))
 
+
+    val paramGridLr = new ParamGridBuilder()
+      .addGrid(lr.regParam, Array(0.8, 0.4, 0.1))
+      .addGrid(lr.maxIter, Array(10, 15, 20))
+      .addGrid(lr.elasticNetParam, Array(0.0, 0.5, 1.0))
+      .build()
+
+    val paramGridRf = new ParamGridBuilder()
+      .addGrid(rf.maxDepth, Array(5, 10, 15))
+      .addGrid(rf.numTrees, Array(3, 6, 9))
+      .build()
 
     val evaluator = new BinaryClassificationEvaluator()
       .setLabelCol("label")
@@ -58,17 +75,26 @@ object HomeWork {
       .setMetricName("areaUnderROC")
 
 
-    val rf = new RandomForestClassifier()
-      .setLabelCol("label")
-      .setFeaturesCol("features")
-      .setNumTrees(10)
+    val trvLr = new TrainValidationSplit()
+      .setEstimator(lrPipeline)
+      .setEstimatorParamMaps(paramGridLr)
+      .setEvaluator(evaluator)
+      .setTrainRatio(0.75)
 
-    val rfPipeline = new Pipeline()
-      .setStages(Array(assembler, selector, scaler, rf))
+    val trvRf = new TrainValidationSplit()
+      .setEstimator(rfPipeline)
+      .setEstimatorParamMaps(paramGridRf)
+      .setEvaluator(evaluator)
+      .setTrainRatio(0.75)
 
-    val rfModel = rfPipeline.fit(training)
+    val lrModel = trvLr.fit(training)
 
+    val rfModel = trvRf.fit(training)
+
+    val lrPredict = lrModel.transform(test)
     val rfPredict = rfModel.transform(test)
+
+    lrPredict.select("label", "prediction", "features").show(10)
 
     rfPredict.select("label", "prediction", "features").show(10)
 
