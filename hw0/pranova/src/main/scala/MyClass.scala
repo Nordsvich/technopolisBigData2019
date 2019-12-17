@@ -47,7 +47,7 @@ object MyClass {
     val resultTask2=spark.sql("select _c0, rew from global_temp.result2 where rew>=0.05 and rew<0.06")
 
     resultTask2.show(false)//done second task
-    
+
     spark.close()
   }
 }

@@ -1,9 +1,8 @@
 import org.apache.spark.ml.Pipeline
-import org.apache.spark.ml.classification.{DecisionTreeClassifier, LogisticRegression, NaiveBayes, RandomForestClassifier}
+import org.apache.spark.ml.classification.{LogisticRegression, RandomForestClassifier}
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 import org.apache.spark.ml.feature.{ChiSqSelector, StandardScaler, VectorAssembler}
-import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder, TrainValidationSplit}
-import org.apache.spark.mllib.tree.DecisionTree
+import org.apache.spark.ml.tuning.{ParamGridBuilder, TrainValidationSplit}
 import org.apache.spark.sql.SparkSession
 
 object MyClass {
@@ -14,11 +13,8 @@ object MyClass {
       .appName("elenapranova")
       .getOrCreate()
 
-    spark.sparkContext.setLogLevel("OFF")
-
     val dataMLDataset = spark.read.format("csv")
       .option("header", "true")
-      .option("inferSchema", "true")
       .load("ml_dataset.csv")
 
     val Array(training, test) = dataMLDataset.randomSplit(Array(0.7, 0.3), seed = 5)
@@ -55,7 +51,6 @@ object MyClass {
       .setEstimator(pipelineRF)
       .setEvaluator(new BinaryClassificationEvaluator)
       .setEstimatorParamMaps(paramGridRF)
-//      .setNumFolds(10)
       .setTrainRatio(0.8)
       .setParallelism(4)
 
@@ -77,7 +72,6 @@ object MyClass {
       .setEstimator(pipelineLR)
       .setEvaluator(new BinaryClassificationEvaluator)
       .setEstimatorParamMaps(paramGridLR)
-//      .setNumFolds(10)
       .setTrainRatio(0.8)
       .setParallelism(4)
 
