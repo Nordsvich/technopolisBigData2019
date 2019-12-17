@@ -18,16 +18,16 @@ object Main {
       .option("inferSchema", "true")
       .load("ml_dataset.csv")
 
-    val Array(trainingData, testData) = df.randomSplit(Array(0.8, 0.2))
+    val Array(trainingData, testData) = df.randomSplit(Array(0.7, 0.3))
 
     val assembler = new VectorAssembler()
       .setInputCols(trainingData.columns.dropRight(1))
       .setOutputCol("vectorizedFeatures")
 
-    val selector = new ChiSqSelector().setFpr(0.1)
+    val selector = new ChiSqSelector()
       .setFeaturesCol("vectorizedFeatures")
       .setLabelCol("label")
-      .setOutputCol("selectedFeatures")
+      .setOutputCol("features")
 
     val forestClassifier = new RandomForestClassifier()
       .setLabelCol("label")
@@ -39,7 +39,7 @@ object Main {
     val gBTClassifier = new GBTClassifier()
       .setLabelCol("label")
       .setFeaturesCol("features")
-      .setMaxIter(10)
+      .setMaxIter(50)
 
     val gBTPipeline = new Pipeline().setStages(Array(assembler, selector, gBTClassifier))
 
