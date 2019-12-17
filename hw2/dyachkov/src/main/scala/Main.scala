@@ -106,7 +106,7 @@ object Main {
         ("Fare", getAvg(data, "Fare")))) // only 1 null, whatever
 
     // features
-    val catFeaturesNames = Array("Sex")
+    val catFeaturesNames = Array("Pclass", "Sex", "Embarked")
     val catFeaturesIndexed = catFeaturesNames.map(_ + "Indexed")
     val catFeaturesOneHot = catFeaturesNames.map(_ + "OneHot")
     val numFeatures = Array("Age", "SibSp", "Parch", "Fare")
