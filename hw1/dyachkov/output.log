@@ -1,0 +1,11 @@
+Random forest
+numTopFeatures = 100
+maxDepth = 15, impurity = entropy
+areaUnderROC = 0.9279279499462313
+areaUnderPR = 0.9194844921744567
+
+Linear regression
+numTopFeatures = 60
+regParam = 0.001, elasticNetParam = 0.9
+areaUnderROC = 0.7709160230716591
+areaUnderPR = 0.757238244533842
