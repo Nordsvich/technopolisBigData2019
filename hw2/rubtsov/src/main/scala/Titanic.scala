@@ -10,7 +10,7 @@ import org.apache.spark.sql.{DataFrame, Row, SaveMode, SparkSession}
 object Titanic {
   val trainPath = "./train.csv"
   val testPath = "./test.csv"
-  val predictionPath = "./predictions"
+  val predictionsPath = "./predictions"
 
   def main(args: Array[String]): Unit = {
     val spark = SparkSession.builder()
@@ -37,7 +37,7 @@ object Titanic {
       .write
       .option("header", "true")
       .mode(SaveMode.Overwrite)
-      .csv(predictionPath)
+      .csv(predictionsPath)
     //coalesce(1) doesn't work (or I don't know how to use it), so result will be partitioned
   }
 
@@ -82,7 +82,8 @@ object Titanic {
       "Fare" -> avgNumericColumn(df, "Fare")
     ))
 
-    val embarkedTrsf: (String => String) = {
+    //udf for fix embarked col
+    val embarkedTrsf: String => String = {
       case "" => "S"
       case null => "S"
       case a => a
