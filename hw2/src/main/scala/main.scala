@@ -42,6 +42,7 @@ def main(args: Array[String]): Unit = {
     .setEstimatorParamMaps(paramGrid)
     .setNumFolds(5)
     .setParallelism(2)
+
   // fit model
   val model = cv.fit(trainData)
   val bestRandomForest = model.bestModel.asInstanceOf[RandomForestClassificationModel]
@@ -52,9 +53,7 @@ def main(args: Array[String]): Unit = {
     .setRawPredictionCol("prediction")
     .setLabelCol("label")
 
-  for (metric <- Seq("areaUnderROC", "areaUnderPR")) {
-    println(s"$metric = ${evaluator.setMetricName(metric).evaluate(predictions)}")
-  }
+  println("AUC = " + evaluator.setMetricName("areaUnderROC").evaluate(predictions))
 
   val dfTest = spark.read.format("csv")
     .option("header", "true")
@@ -65,8 +64,9 @@ def main(args: Array[String]): Unit = {
     .select("PassengerId", "features")
     .cache()
 
-  bestRandomForest.transform(dfTestPreproc)
-    .select("PassengerId", "prediction")
+  val df = bestRandomForest.transform(dfTestPreproc)
+
+  df.select("PassengerId", "prediction")
     .withColumn("Survived", col("prediction").cast(IntegerType))
     .drop("prediction")
     .write
@@ -104,8 +104,7 @@ def main(args: Array[String]): Unit = {
     assembler.setInputCols(features).setOutputCol("features")
 
     val pipeline = new Pipeline().setStages(sexProc ++ embarkedProc  ++ Array(assembler))
-    pipeline.fit(dfFixed)
-      .transform(dfFixed)
+    pipeline.fit(dfFixed).transform(dfFixed)
   }
 
   def stringEncoder(colName : String): Array[PipelineStage] = {
